@@ -8,48 +8,57 @@ Ships with an **E-Commerce Operations** sample domain. The same orchestration co
 
 ## Architecture
 
-```
-                          ┌─────────────────────────────┐
-                          │      Azure AI Foundry        │
-                          │   (LLM Inference, Eval,      │
-                          │    Tracing)                   │
-                          └──────────────┬────────────────┘
-                                         │ HTTPS
-                                         ▼
-┌──────────┐  HTTP   ┌──────────────────────────────────────────┐
-│  Client   │◄──────►│              Agent Host                   │
-└──────────┘         │  ASP.NET Core + Agent Framework           │
-                     │  • Session & context management           │
-                     │  • Tool selection & reasoning              │
-                     │  • Middleware (redaction, telemetry)       │
-                     └─────┬──────────────────┬─────────────────┘
-                           │                  │
-              Direct Tools │                  │ Workflow Tools
-              (HTTP)       │                  │ (AMQP)
-                           │                  │
-            ┌──────────────┼──────┐           ▼
-            │              │      │    ┌─────────────┐
-            ▼              ▼      ▼    │  RabbitMQ    │
-     ┌──────────┐  ┌────────┐ ┌────┐  └──────┬──────┘
-     │ Product  │  │ Order  │ │Inv.│         │
-     │ Service  │  │Service │ │Svc │         ▼
-     └──────────┘  └────────┘ └────┘  ┌──────────────────────┐
-            ▲          ▲       ▲      │ Workflow Orchestrator  │
-            │          │       │      │ MassTransit Sagas      │
-            │   AMQP   │       │      │ • OrderInvestigation   │
-            └──────────┼───────┘      │ • OrderAction          │
-                       │              └──────────┬─────────────┘
-                       │                         │
-                       │                         │ PostgreSQL
-                       │                         │ (saga state)
-                       │              ┌──────────┘
-                       │              │
-                       ▼              ▼
-               ┌──────────────┐  ┌──────────┐
-               │ Notification │  │PostgreSQL │
-               │ Service      │  └──────────┘
-               │ (Node.js/TS) │
-               └──────────────┘
+```mermaid
+graph TD
+    %% Define Nodes
+    Foundry[Azure AI Foundry<br/><i>LLM Inference, Eval, Tracing</i>]
+    Client([Client])
+    
+    subgraph Host [Agent Host]
+        AH[ASP.NET Core + Agent Framework]
+        AH_D[• Session & context management<br/>• Tool selection & reasoning<br/>• Middleware redaction, telemetry]
+    end
+
+    subgraph Direct [Direct Tools - HTTP]
+        Prod[Product Service]
+        Order[Order Service]
+        Inv[Inv. Svc]
+    end
+
+    subgraph Async [Workflow Tools - AMQP]
+        RMQ[[RabbitMQ]]@{ "type" : "queue" }
+        subgraph Orch [Workflow Orchestrator]
+            MT[MassTransit Sagas]
+            MT_D[• OrderInvestigation<br/>• OrderAction]
+        end
+        PG[(PostgreSQL<br/>saga state)]
+    end
+
+    Notify[Notification Service<br/><i>Node.js/TS</i>]
+
+    %% Connections
+    Foundry <==> |HTTPS| AH
+    Client <==> |HTTP| AH
+
+    AH ==> |Direct Tools HTTP| Prod
+    AH ==> |Direct Tools HTTP| Order
+    AH ==> |Direct Tools HTTP| Inv
+
+    AH ==> |Workflow Tools AMQP| RMQ
+    RMQ ==> MT
+    MT -.-> |PostgreSQL| PG
+    
+    %% Async Back-channel
+    MT ==> |AMQP| Prod
+    MT ==> |AMQP| Order
+    MT ==> |AMQP| Inv
+    MT ==> |AMQP| Notify
+
+    %% Styles
+    style AH fill:#2d3436,color:#fff,stroke:#fff
+    style Foundry fill:#0984e3,color:#fff,stroke:#74b9ff
+    style RMQ fill:#e67e22,color:#fff,stroke:#d35400
+    style MT fill:#2d3436,color:#fff,stroke:#fff
 ```
 
 ### Two Communication Paths
