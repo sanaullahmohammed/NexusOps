@@ -1,4 +1,4 @@
-<Project Sdk="Aspire.AppHost.Sdk/13.2.1">
+<Project Sdk="Aspire.AppHost.Sdk/13.2.4">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
@@ -9,10 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\NexusOps.AgentHost\NexusOps.AgentHost.csproj" />
     <ProjectReference Include="..\NexusOps.Server\NexusOps.Server.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.2.1" />
+    <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.2.4" />
   </ItemGroup>
 </Project>
