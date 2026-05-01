@@ -1,5 +1,6 @@
 using Microsoft.OpenApi;
 using NexusOps.AgentHost.Endpoints;
+using NexusOps.AgentHost.Extensions;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
