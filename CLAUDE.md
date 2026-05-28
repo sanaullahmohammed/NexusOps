@@ -62,7 +62,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 - React chat UI (replacing scaffold)
 - Tool definitions wired to the agent
 - Evaluation dataset + runner
-- CI/CD, integration tests, Redis session cache, Kubernetes manifests
+- Integration tests, Redis session cache, Kubernetes manifests
 
 ## Running the Application
 
@@ -99,6 +99,26 @@ Azure AI credentials are configured via `AzureAI` section in appsettings:
 - `AzureAI:ApiKey` — injected at runtime via Aspire `WithEnvironment("AzureAI__ApiKey", ...)`
 - `AzureAI:DeploymentName` — model deployment name
 - `AzureAI:AgentName` / `AzureAI:AgentInstructions` — optional overrides (defaults in `AzureAIOptions.cs`)
+
+## CI/CD
+
+Four GitHub Actions workflows under `.github/workflows/`:
+
+| File | Trigger | Purpose |
+|---|---|---|
+| `ci.yml` | push/PR → `master` | Build + test (.NET and frontend in parallel) |
+| `codeql.yml` | push/PR → `master`, weekly | SAST static analysis (C# + TypeScript) |
+| `dependency-review.yml` | PR → `master` | Block PRs introducing high/critical CVEs |
+
+Dependabot config at `.github/dependabot.yml` keeps NuGet, npm, and GitHub Actions versions current (weekly, Monday).
+
+**Solution filter — `NexusOps.deployable.slnf`**
+
+`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to `NexusOps.AgentHost` and `NexusOps.Server` only — the two deployable services. `NexusOps.AppHost` is excluded because it is a dev-only Aspire orchestrator. Local development is unaffected; open `NexusOps.sln` as normal.
+
+**Azure AI credentials in CI**
+
+`appsettings.Development.json` contains a placeholder API key. GitHub runners use `Production` environment, so that file is never loaded. `dotnet build` and `dotnet test` never start the ASP.NET Core host, so the credential validation in `AgentServiceExtensions.cs` is never triggered. No Azure AI secrets are needed in CI for build or unit tests. When integration tests are added, isolate them in a job gated to `push` to `master` only (not fork PRs).
 
 ## Spec-Kit Workflow
 
