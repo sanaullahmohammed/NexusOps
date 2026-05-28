@@ -1,0 +1,9 @@
+{
+  "solution": {
+    "path": "NexusOps.sln",
+    "projects": [
+      "NexusOps.AgentHost\\NexusOps.AgentHost.csproj",
+      "NexusOps.Server\\NexusOps.Server.csproj"
+    ]
+  }
+}
