@@ -2,7 +2,7 @@
 
 <!-- SPECKIT START -->
 
-**Active Feature Plan**: [specs/001-ecommerce-domain-services/plan.md](specs/001-ecommerce-domain-services/plan.md)
+**Active Feature Plan**: [specs/002-session-management/plan.md](specs/002-session-management/plan.md)
 
 ## Project Overview
 
