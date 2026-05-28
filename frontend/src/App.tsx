@@ -37,7 +37,9 @@ function App() {
   };
 
   useEffect(() => {
-    fetchWeatherForecast();
+    Promise.resolve().then(() => {
+      fetchWeatherForecast();
+    });
   }, []);
 
   const formatDate = (dateString: string) => {
