@@ -19,13 +19,13 @@
 
 **Purpose**: Create the four new projects and wire them into the solution. No user story work can proceed until these exist.
 
-- [ ] T001 Create `NexusOps.Contracts` class library (`dotnet new classlib -n NexusOps.Contracts`) and add to `NexusOps.sln`
-- [ ] T002 Create `NexusOps.OrderService` web project (`dotnet new web -n NexusOps.OrderService`) and add to `NexusOps.sln`
-- [ ] T003 [P] Create `NexusOps.InventoryService` web project (`dotnet new web -n NexusOps.InventoryService`) and add to `NexusOps.sln`
-- [ ] T004 [P] Create `NexusOps.ProductService` web project (`dotnet new web -n NexusOps.ProductService`) and add to `NexusOps.sln`
-- [ ] T005 Add `NexusOps.Contracts` `<ProjectReference>` to `NexusOps.OrderService/NexusOps.OrderService.csproj`, `NexusOps.InventoryService/NexusOps.InventoryService.csproj`, `NexusOps.ProductService/NexusOps.ProductService.csproj`, and `NexusOps.AgentHost/NexusOps.AgentHost.csproj`
-- [ ] T006 Add `<ProjectReference>` entries for all three domain services and `NexusOps.Contracts` to `NexusOps.AppHost/NexusOps.AppHost.csproj`
-- [ ] T007 Add `Aspire.Hosting.AppHost` SDK and `Microsoft.Extensions.ServiceDiscovery` references to each domain service `.csproj`; copy `NexusOps.AgentHost/appsettings.json` pattern to each service
+- [X] T001 Create `NexusOps.Contracts` class library (`dotnet new classlib -n NexusOps.Contracts`) and add to `NexusOps.sln`
+- [X] T002 Create `NexusOps.OrderService` web project (`dotnet new web -n NexusOps.OrderService`) and add to `NexusOps.sln`
+- [X] T003 [P] Create `NexusOps.InventoryService` web project (`dotnet new web -n NexusOps.InventoryService`) and add to `NexusOps.sln`
+- [X] T004 [P] Create `NexusOps.ProductService` web project (`dotnet new web -n NexusOps.ProductService`) and add to `NexusOps.sln`
+- [X] T005 Add `NexusOps.Contracts` `<ProjectReference>` to `NexusOps.OrderService/NexusOps.OrderService.csproj`, `NexusOps.InventoryService/NexusOps.InventoryService.csproj`, `NexusOps.ProductService/NexusOps.ProductService.csproj`, and `NexusOps.AgentHost/NexusOps.AgentHost.csproj`
+- [X] T006 Add `<ProjectReference>` entries for all three domain services (`NexusOps.OrderService`, `NexusOps.InventoryService`, `NexusOps.ProductService`) to `NexusOps.AppHost/NexusOps.AppHost.csproj` — do NOT add `NexusOps.Contracts` here; AppHost is an Aspire orchestrator and only needs service project references for resource registration
+- [X] T007 Add `Aspire.Hosting.AppHost` SDK and `Microsoft.Extensions.ServiceDiscovery` references to each domain service `.csproj`; copy `NexusOps.AgentHost/appsettings.json` pattern to each service
 
 **Checkpoint**: `dotnet build NexusOps.sln` succeeds with four new empty projects compiling cleanly.
 
@@ -37,15 +37,15 @@
 
 **⚠️ CRITICAL**: Phases 3–6 cannot begin until this phase is complete.
 
-- [ ] T008 Implement `ToolResult<T>` (Success, Data, Error; `Ok`/`Fail` factory methods) in `NexusOps.Contracts/Dtos/ToolResult.cs`
-- [ ] T009 Implement `SeedDataConstants` static class (all shared SKUs, order IDs, product IDs from data-model.md) in `NexusOps.Contracts/SeedDataConstants.cs`
-- [ ] T010 Implement `ToolNames` static class (tool name + description string constants for all 6 tools from `contracts/tool-definitions.md`) in `NexusOps.Contracts/ToolNames.cs`
-- [ ] T011 [P] Implement `OrderSummary` and `OrderLineItem` DTO records in `NexusOps.Contracts/Dtos/OrderSummary.cs`
-- [ ] T012 [P] Implement `OrderAnomaly` DTO record in `NexusOps.Contracts/Dtos/OrderAnomaly.cs`
-- [ ] T013 [P] Implement `InventoryAlert` and `InventoryLevel` DTO records in `NexusOps.Contracts/Dtos/InventoryAlert.cs` and `NexusOps.Contracts/Dtos/InventoryLevel.cs`
-- [ ] T014 [P] Implement `ProductDetail` and `ProductSummary` DTO records in `NexusOps.Contracts/Dtos/ProductDetail.cs`
-- [ ] T015 Update `NexusOps.AgentHost/Extensions/AgentServiceExtensions.cs` to resolve `IList<AITool>` from DI (via `IServiceProvider`) and pass it to `chatClient.AsAIAgent(...)` as the `tools` parameter
-- [ ] T016 Create `NexusOps.AgentHost/Tools/ToolHandlerExtensions.cs` with empty `AddToolHandlers(this IServiceCollection services, IConfiguration config)` extension method scaffold; call it from `NexusOps.AgentHost/Program.cs` before `AddAgentServices`
+- [X] T008 Implement `ToolResult<T>` (Success, Data, Error; `Ok`/`Fail` factory methods) in `NexusOps.Contracts/Dtos/ToolResult.cs`
+- [X] T009 Implement `SeedDataConstants` static class (all shared SKUs, order IDs, product IDs from data-model.md) in `NexusOps.Contracts/SeedDataConstants.cs`
+- [X] T010 Implement `ToolNames` static class (tool name + description string constants for all 6 tools from `contracts/tool-definitions.md`) in `NexusOps.Contracts/ToolNames.cs`
+- [X] T011 [P] Implement `OrderSummary` and `OrderLineItem` DTO records in `NexusOps.Contracts/Dtos/OrderSummary.cs`
+- [X] T012 [P] Implement `OrderAnomaly` DTO record in `NexusOps.Contracts/Dtos/OrderAnomaly.cs`
+- [X] T013 [P] Implement `InventoryAlert` and `InventoryLevel` DTO records in `NexusOps.Contracts/Dtos/InventoryAlert.cs` and `NexusOps.Contracts/Dtos/InventoryLevel.cs`
+- [X] T014 [P] Implement `ProductDetail` and `ProductSummary` DTO records in `NexusOps.Contracts/Dtos/ProductDetail.cs`
+- [X] T015 Update `NexusOps.AgentHost/Extensions/AgentServiceExtensions.cs` to resolve `IList<AITool>` from DI (via `IServiceProvider`) and pass it to `chatClient.AsAIAgent(...)` as the `tools` parameter
+- [X] T016 Create `NexusOps.AgentHost/Tools/ToolHandlerExtensions.cs` with empty `AddToolHandlers(this IServiceCollection services, IConfiguration config)` extension method scaffold; call it from `NexusOps.AgentHost/Program.cs` before `AddAgentServices`
 
 **Checkpoint**: `dotnet build NexusOps.sln` succeeds. AgentHost wires with empty tool list — no runtime change yet.
 
@@ -57,15 +57,17 @@
 
 **Independent Test**: `POST /api/chat {"prompt": "Show me all delayed orders"}` returns ORD-0001 and ORD-0002 with delay details.
 
-- [ ] T017 Implement `OrderStatus` enum and `LineItem` record in `NexusOps.OrderService/Models/Order.cs` (statuses: pending, processing, shipped, delivered, delayed, cancelled)
-- [ ] T018 Implement `Order` domain model in `NexusOps.OrderService/Models/Order.cs` (all fields from data-model.md including first-class `delayed` status)
-- [ ] T019 Implement `OrderStore` with static in-memory list and seed data (10 orders per FR-007 using `SeedDataConstants` SKUs — at least 2 `delayed`, 1 referencing `SKU-ELEC-001`) in `NexusOps.OrderService/Data/OrderStore.cs`
-- [ ] T020 Implement `OrderEndpoints.MapOrderEndpoints()` extension in `NexusOps.OrderService/Endpoints/OrderEndpoints.cs`: `GET /orders/anomalies?status=` and `GET /orders/{orderId}` per `contracts/order-service-api.md`; map internal `Order` to `OrderSummary`/`OrderAnomaly` Contracts DTOs
-- [ ] T021 Wire `NexusOps.OrderService/Program.cs`: call `builder.AddServiceDefaults()`, `builder.Services.AddProblemDetails()`, `app.MapDefaultEndpoints()`, `app.MapOrderEndpoints()`
-- [ ] T022 Register `order-service` in `NexusOps.AppHost/AppHost.cs`: `builder.AddProject<Projects.NexusOps_OrderService>("order-service").WithHttpHealthCheck("/health")`; add `.WithReference(orderService)` to the `agent-host` registration
-- [ ] T023 Register named HttpClient `"order-service"` with `.AddServiceDiscovery()` in `NexusOps.AgentHost/Program.cs`
-- [ ] T024 Implement `OrderTools` class in `NexusOps.AgentHost/Tools/OrderTools.cs`: constructor-inject `IHttpClientFactory` and `ILogger<OrderTools>`; implement `InvestigateOrderAnomalyAsync(string? status)` and `GetOrderDetailsAsync(string orderId)` methods using `ToolResult<T>` — catch all exceptions and return `ToolResult.Fail(reason)`
-- [ ] T025 Register `OrderTools` in DI, create `AIFunction` instances via `AIFunctionFactory.Create(...)` using `ToolNames` constants, add to `IList<AITool>` singleton in `NexusOps.AgentHost/Tools/ToolHandlerExtensions.cs`; update agent instructions in `NexusOps.AgentHost/Configuration/AzureAIOptions.cs` — replace the existing `get_order_details` stub reference with `investigate_order_anomaly` and `get_order_details` as the canonical order tools; also remove the stub entries for `get_product_catalog` and `get_inventory_status` from the routing section (these are deprecated names replaced by tools registered in T033 and T041)
+- [X] T017 Implement `OrderStatus` enum and `LineItem` record in `NexusOps.OrderService/Models/Order.cs` (statuses: pending, processing, shipped, delivered, delayed, cancelled)
+- [X] T018 Implement `Order` domain model in `NexusOps.OrderService/Models/Order.cs` (all fields from data-model.md including first-class `delayed` status)
+- [X] T019 Implement `OrderStore` with static in-memory list and seed data (10 orders per FR-007 using `SeedDataConstants` SKUs — at least 2 `delayed`, 1 referencing `SKU-ELEC-001`) in `NexusOps.OrderService/Data/OrderStore.cs`
+- [X] T020 Implement `OrderEndpoints.MapOrderEndpoints()` extension in `NexusOps.OrderService/Endpoints/OrderEndpoints.cs`: `GET /orders/anomalies?status=` and `GET /orders/{orderId}` per `contracts/order-service-api.md`; map internal `Order` to `OrderSummary`/`OrderAnomaly` Contracts DTOs
+- [X] T021 Wire `NexusOps.OrderService/Program.cs`: call `builder.AddServiceDefaults()`, `builder.Services.AddProblemDetails()`, `app.MapDefaultEndpoints()`, `app.MapOrderEndpoints()`
+- [X] T022 Register `order-service` in `NexusOps.AppHost/AppHost.cs`: `builder.AddProject<Projects.NexusOps_OrderService>("order-service").WithHttpHealthCheck("/health")`; add `.WithReference(orderService)` to the `agent-host` registration
+- [X] T023 Register named HttpClient `"order-service"` with `.AddServiceDiscovery()` in `NexusOps.AgentHost/Program.cs`
+- [X] T024 Implement `OrderTools` class in `NexusOps.AgentHost/Tools/OrderTools.cs`: constructor-inject `IHttpClientFactory` and `ILogger<OrderTools>`; implement `InvestigateOrderAnomalyAsync(string? status)` and `GetOrderDetailsAsync(string orderId)` methods using `ToolResult<T>` — catch all exceptions and return `ToolResult.Fail(reason)`
+- [X] T025 Register `OrderTools` in DI, create `AIFunction` instances via `AIFunctionFactory.Create(...)` using `ToolNames` constants, add to `IList<AITool>` singleton in `NexusOps.AgentHost/Tools/ToolHandlerExtensions.cs`; update agent instructions in `NexusOps.AgentHost/Configuration/AzureAIOptions.cs` — replace the existing `get_order_details` stub reference with `investigate_order_anomaly` and `get_order_details` as the canonical order tools; also remove the stub entries for `get_product_catalog` and `get_inventory_status` from the routing section (these are deprecated names replaced by tools registered in T033 and T041)
+
+- [ ] T025a **[DEFERRED]** FR-004 requires a "list orders by status" operation (e.g., show all `processing` orders). This is not covered by the existing `investigate_order_anomaly` or `get_order_details` tools. Deferred from this feature slice — no tool definition, no endpoint, and no agent routing entry exists for general status-filter queries. Add as a follow-up task in the next iteration when the `list_orders_by_status` tool and `GET /orders?status=` endpoint are specified.
 
 **Checkpoint**: `dotnet run --project NexusOps.AppHost` → order-service healthy in dashboard → `POST /api/chat "Show me all delayed orders"` returns ORD-0001 and ORD-0002.
 
@@ -77,14 +79,14 @@
 
 **Independent Test**: `POST /api/chat {"prompt": "Which products are running low on stock?"}` returns at least SKU-ELEC-001 (Wireless Headphones Pro, 0 stock) and SKU-APRL-003 (below reorder threshold).
 
-- [ ] T026 Implement `InventoryRecord` domain model in `NexusOps.InventoryService/Models/InventoryRecord.cs` (all fields from data-model.md)
-- [ ] T027 Implement `InventoryStore` with seed data (15 inventory records using `SeedDataConstants` SKUs — at least 1 with zero stock on `SKU-ELEC-001`, at least 1 below reorder threshold on `SKU-APRL-003`) in `NexusOps.InventoryService/Data/InventoryStore.cs`
-- [ ] T028 Implement `InventoryEndpoints.MapInventoryEndpoints()` in `NexusOps.InventoryService/Endpoints/InventoryEndpoints.cs`: `GET /inventory/alerts?outOfStockOnly=` and `GET /inventory/{sku}` per `contracts/inventory-service-api.md`; map to `InventoryAlert`/`InventoryLevel` Contracts DTOs
-- [ ] T029 Wire `NexusOps.InventoryService/Program.cs`: `builder.AddServiceDefaults()`, `app.MapDefaultEndpoints()`, `app.MapInventoryEndpoints()`
-- [ ] T030 Register `inventory-service` in `NexusOps.AppHost/AppHost.cs` with `WithHttpHealthCheck("/health")`; add `.WithReference(inventoryService)` to `agent-host`
-- [ ] T031 Register named HttpClient `"inventory-service"` with `.AddServiceDiscovery()` in `NexusOps.AgentHost/Program.cs`
-- [ ] T032 Implement `InventoryTools` class in `NexusOps.AgentHost/Tools/InventoryTools.cs`: `GetInventoryAlertsAsync(bool outOfStockOnly)` and `GetInventoryLevelAsync(string sku)` using `ToolResult<T>` with failure path
-- [ ] T033 Register `InventoryTools` and create `AIFunction` instances in `ToolHandlerExtensions.cs`; update agent instructions in `AzureAIOptions.cs` — replace the deprecated `get_inventory_status` routing entry with `get_inventory_alerts` and `get_inventory_level` as the canonical inventory tools
+- [X] T026 Implement `InventoryRecord` domain model in `NexusOps.InventoryService/Models/InventoryRecord.cs` (all fields from data-model.md)
+- [X] T027 Implement `InventoryStore` with seed data (15 inventory records using `SeedDataConstants` SKUs — at least 1 with zero stock on `SKU-ELEC-001`, at least 1 below reorder threshold on `SKU-APRL-003`) in `NexusOps.InventoryService/Data/InventoryStore.cs`
+- [X] T028 Implement `InventoryEndpoints.MapInventoryEndpoints()` in `NexusOps.InventoryService/Endpoints/InventoryEndpoints.cs`: `GET /inventory/alerts?outOfStockOnly=` and `GET /inventory/{sku}` per `contracts/inventory-service-api.md`; map to `InventoryAlert`/`InventoryLevel` Contracts DTOs
+- [X] T029 Wire `NexusOps.InventoryService/Program.cs`: `builder.AddServiceDefaults()`, `app.MapDefaultEndpoints()`, `app.MapInventoryEndpoints()`
+- [X] T030 Register `inventory-service` in `NexusOps.AppHost/AppHost.cs` with `WithHttpHealthCheck("/health")`; add `.WithReference(inventoryService)` to `agent-host`
+- [X] T031 Register named HttpClient `"inventory-service"` with `.AddServiceDiscovery()` in `NexusOps.AgentHost/Program.cs`
+- [X] T032 Implement `InventoryTools` class in `NexusOps.AgentHost/Tools/InventoryTools.cs`: `GetInventoryAlertsAsync(bool outOfStockOnly)` and `GetInventoryLevelAsync(string sku)` using `ToolResult<T>` with failure path
+- [X] T033 Register `InventoryTools` and create `AIFunction` instances in `ToolHandlerExtensions.cs`; update agent instructions in `AzureAIOptions.cs` — replace the deprecated `get_inventory_status` routing entry with `get_inventory_alerts` and `get_inventory_level` as the canonical inventory tools
 
 **Checkpoint**: `POST /api/chat "Which products are running low on stock?"` returns both SKU-ELEC-001 (zero stock) and SKU-APRL-003 (below threshold). `POST /api/chat "What is the stock level for SKU-APRL-003?"` returns the specific inventory record.
 
@@ -96,14 +98,14 @@
 
 **Independent Test**: `POST /api/chat {"prompt": "What are the details for SKU-ELEC-001?"}` returns full product details including name, description, price, and category.
 
-- [ ] T034 Implement `Product` domain model in `NexusOps.ProductService/Models/Product.cs` (all fields from data-model.md)
-- [ ] T035 Implement `ProductStore` with seed data (15 products across 3 categories — Electronics, Apparel, Home & Garden — using `SeedDataConstants` SKUs) in `NexusOps.ProductService/Data/ProductStore.cs`
-- [ ] T036 Implement `ProductEndpoints.MapProductEndpoints()` in `NexusOps.ProductService/Endpoints/ProductEndpoints.cs`: `GET /products/{sku}` and `GET /products?category=` per `contracts/product-service-api.md`; map to `ProductDetail`/`ProductSummary` Contracts DTOs
-- [ ] T037 Wire `NexusOps.ProductService/Program.cs`: `builder.AddServiceDefaults()`, `app.MapDefaultEndpoints()`, `app.MapProductEndpoints()`
-- [ ] T038 Register `product-service` in `NexusOps.AppHost/AppHost.cs` with `WithHttpHealthCheck("/health")`; add `.WithReference(productService)` to `agent-host`
-- [ ] T039 Register named HttpClient `"product-service"` with `.AddServiceDiscovery()` in `NexusOps.AgentHost/Program.cs`
-- [ ] T040 Implement `ProductTools` class in `NexusOps.AgentHost/Tools/ProductTools.cs`: `GetProductDetailsAsync(string sku)` and `ListProductsByCategoryAsync(string? category)` — `category` is optional (null = return all products, matching FR-006 "list all products"); use `ToolResult<T>` with failure path
-- [ ] T041 Register `ProductTools` and create `AIFunction` instances in `ToolHandlerExtensions.cs`; update agent instructions in `AzureAIOptions.cs` — replace the deprecated `get_product_catalog` routing entry with `get_product_details` and `list_products_by_category` as the canonical product tools; do a final review of the full instructions routing section to confirm no deprecated tool names (`get_product_catalog`, `get_inventory_status`) remain
+- [X] T034 Implement `Product` domain model in `NexusOps.ProductService/Models/Product.cs` (all fields from data-model.md)
+- [X] T035 Implement `ProductStore` with seed data (15 products across 3 categories — Electronics, Apparel, Home & Garden — using `SeedDataConstants` SKUs) in `NexusOps.ProductService/Data/ProductStore.cs`
+- [X] T036 Implement `ProductEndpoints.MapProductEndpoints()` in `NexusOps.ProductService/Endpoints/ProductEndpoints.cs`: `GET /products/{sku}` and `GET /products?category=` per `contracts/product-service-api.md`; map to `ProductDetail`/`ProductSummary` Contracts DTOs
+- [X] T037 Wire `NexusOps.ProductService/Program.cs`: `builder.AddServiceDefaults()`, `app.MapDefaultEndpoints()`, `app.MapProductEndpoints()`
+- [X] T038 Register `product-service` in `NexusOps.AppHost/AppHost.cs` with `WithHttpHealthCheck("/health")`; add `.WithReference(productService)` to `agent-host`
+- [X] T039 Register named HttpClient `"product-service"` with `.AddServiceDiscovery()` in `NexusOps.AgentHost/Program.cs`
+- [X] T040 Implement `ProductTools` class in `NexusOps.AgentHost/Tools/ProductTools.cs`: `GetProductDetailsAsync(string sku)` and `ListProductsByCategoryAsync(string? category)` — `category` is optional (null = return all products, matching FR-006 "list all products"); use `ToolResult<T>` with failure path
+- [X] T041 Register `ProductTools` and create `AIFunction` instances in `ToolHandlerExtensions.cs`; update agent instructions in `AzureAIOptions.cs` — replace the deprecated `get_product_catalog` routing entry with `get_product_details` and `list_products_by_category` as the canonical product tools; do a final review of the full instructions routing section to confirm no deprecated tool names (`get_product_catalog`, `get_inventory_status`) remain
 
 **Checkpoint**: All three domain services healthy in Aspire dashboard. `POST /api/chat "List all Electronics products"` returns 5 products. `POST /api/chat "What are the details for SKU-ELEC-001?"` returns full product record.
 
@@ -117,8 +119,8 @@
 
 **Note**: This story requires no new services or tools — it validates multi-tool reasoning using components from Phases 3–5. It depends on US1 (order tools) and US2 (inventory tools) being complete.
 
-- [ ] T042 [US4] Review `NexusOps.OrderService/Data/OrderStore.cs` and `NexusOps.InventoryService/Data/InventoryStore.cs` to confirm ORD-0003 references `SKU-ELEC-001` (zero stock) per FR-007 cross-service integrity requirement; fix seed data if inconsistent
-- [ ] T043 [US4] Update agent instructions in `NexusOps.AgentHost/Configuration/AzureAIOptions.cs`: add explicit multi-tool reasoning guidance — when a cross-service query is detected, the agent should call both relevant read tools and synthesise results rather than stopping after one tool
+- [X] T042 [US4] Review `NexusOps.OrderService/Data/OrderStore.cs` and `NexusOps.InventoryService/Data/InventoryStore.cs` to confirm ORD-0003 references `SKU-ELEC-001` (zero stock) per FR-007 cross-service integrity requirement; fix seed data if inconsistent
+- [X] T043 [US4] Update agent instructions in `NexusOps.AgentHost/Configuration/AzureAIOptions.cs`: add explicit multi-tool reasoning guidance — when a cross-service query is detected, the agent should call both relevant read tools and synthesise results rather than stopping after one tool
 - [ ] T044 [US4] Manual verification: run `POST /api/chat "Are there any orders for products that are currently out of stock?"` and confirm response references ORD-0003 and SKU-ELEC-001 together
 
 **Checkpoint**: Agent demonstrates multi-tool composition in a single turn and surfaces the at-risk order. Cross-service story (SC-006) satisfied.
@@ -129,12 +131,12 @@
 
 **Purpose**: Finalize solution structure, validate observability requirements, and confirm all success criteria.
 
-- [ ] T045 Add `NexusOps.Contracts`, `NexusOps.OrderService`, `NexusOps.InventoryService`, and `NexusOps.ProductService` entries to `NexusOps.deployable.slnf` (Contracts must be included because the three domain services reference it — omitting it breaks the solution filter build)
+- [X] T045 Add `NexusOps.Contracts`, `NexusOps.OrderService`, `NexusOps.InventoryService`, and `NexusOps.ProductService` entries to `NexusOps.deployable.slnf` (Contracts must be included because the three domain services reference it — omitting it breaks the solution filter build)
 - [ ] T046 [P] Run `dotnet build NexusOps.deployable.slnf` and confirm zero warnings/errors across all deployable projects
 - [ ] T047 [P] Verify all five services appear healthy (green) in the Aspire dashboard after `dotnet run --project NexusOps.AppHost` (satisfies SC-002)
 - [ ] T048 [P] Open Aspire dashboard → Traces tab, send one chat request per tool, and confirm distributed traces span AgentHost → each domain service (satisfies SC-005)
 - [ ] T049 Run full `specs/001-ecommerce-domain-services/quickstart.md` validation: all four curl scenarios return expected results (SC-001, SC-003, SC-006)
-- [ ] T050 Update `CLAUDE.md` Current Build State section to document that Order, Inventory, and Product services are now implemented with in-memory seed data and Direct-path tools are wired
+- [X] T050 Update `CLAUDE.md` Current Build State section to document that Order, Inventory, and Product services are now implemented with in-memory seed data and Direct-path tools are wired
 
 ---
 

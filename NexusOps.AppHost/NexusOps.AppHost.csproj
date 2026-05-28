@@ -11,6 +11,9 @@
   <ItemGroup>
     <ProjectReference Include="..\NexusOps.AgentHost\NexusOps.AgentHost.csproj" />
     <ProjectReference Include="..\NexusOps.Server\NexusOps.Server.csproj" />
+    <ProjectReference Include="..\NexusOps.OrderService\NexusOps.OrderService.csproj" />
+    <ProjectReference Include="..\NexusOps.InventoryService\NexusOps.InventoryService.csproj" />
+    <ProjectReference Include="..\NexusOps.ProductService\NexusOps.ProductService.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -26,6 +26,10 @@ Two saga designs:
 ```
 NexusOps.AppHost/          # Aspire AppHost — topology, service discovery, env wiring
 NexusOps.AgentHost/        # ASP.NET Core + Microsoft Agent Framework — LLM reasoning, tool dispatch
+NexusOps.Contracts/        # Shared library — ToolResult<T>, ToolNames, SeedDataConstants, response DTOs
+NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations, in-memory seed data
+NexusOps.InventoryService/ # ASP.NET Core Minimal API — inventory read operations, in-memory seed data
+NexusOps.ProductService/   # ASP.NET Core Minimal API — product read operations, in-memory seed data
 NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
 frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
 .spec-kit/commands/        # Spec-kit slash command definitions
@@ -51,9 +55,14 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 ## Current Build State
 
 **Implemented:**
-- Aspire AppHost wires up AgentHost and Server with health checks and service discovery
+- Aspire AppHost wires up AgentHost, Server, and all three domain services with health checks and service discovery
 - AgentHost: Azure AI Foundry agent wired via `AzureOpenAIClient` → `AIAgent`, stateless `POST /api/chat` endpoint
-- Agent instructions encode the dual-path routing protocol and tool selection rules
+- **NexusOps.Contracts**: Shared library with `ToolResult<T>`, `ToolNames`, `SeedDataConstants`, and all response DTOs
+- **NexusOps.OrderService**: ASP.NET Core Minimal API — `GET /orders/anomalies`, `GET /orders/{id}`, in-memory seed data (10 orders)
+- **NexusOps.InventoryService**: ASP.NET Core Minimal API — `GET /inventory/alerts`, `GET /inventory/{sku}`, in-memory seed data (15 records)
+- **NexusOps.ProductService**: ASP.NET Core Minimal API — `GET /products/{sku}`, `GET /products?category=`, in-memory seed data (15 products)
+- **6 Direct-path tools** wired into AgentHost via `AIFunctionFactory.Create(...)`: `investigate_order_anomaly`, `get_order_details`, `get_inventory_alerts`, `get_inventory_level`, `get_product_details`, `list_products_by_category`
+- Agent instructions updated with canonical tool routing rules and multi-tool cross-service composition guidance
 - ServiceDefaults: shared OTEL, health checks, resilience extension methods
 - Frontend: React + Vite scaffold with Aspire proxy integration
 
@@ -85,6 +94,24 @@ curl -X POST http://localhost:<port>/api/chat \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Show me all delayed orders"}'
 ```
+
+## Project Conventions
+
+**Adding a new .NET project**
+
+Every new `.csproj` project must have a `.gitignore` file in its project directory containing at minimum:
+
+```
+bin/
+obj/
+out/
+*.nupkg
+*.lscache
+```
+
+This matches the pattern used by all existing projects (`NexusOps.AgentHost`, `NexusOps.AppHost`, `NexusOps.Server`, and all domain services). The root `.gitignore` covers IDE/OS/secrets patterns; per-project files cover build output.
+
+---
 
 ## Key Design Decisions
 

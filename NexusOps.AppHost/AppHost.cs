@@ -1,8 +1,23 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var _ = builder.AddProject<Projects.NexusOps_AgentHost>("agent-host")
+var orderService = builder.AddProject<Projects.NexusOps_OrderService>("order-service")
+    .WithHttpHealthCheck("/health");
+
+var inventoryService = builder.AddProject<Projects.NexusOps_InventoryService>("inventory-service")
+    .WithHttpHealthCheck("/health");
+
+var productService = builder.AddProject<Projects.NexusOps_ProductService>("product-service")
+    .WithHttpHealthCheck("/health");
+
+var agentHost = builder.AddProject<Projects.NexusOps_AgentHost>("agent-host")
     .WithHttpHealthCheck("/health")
-    .WithExternalHttpEndpoints();
+    .WithExternalHttpEndpoints()
+    .WithReference(orderService)
+    .WithReference(inventoryService)
+    .WithReference(productService)
+    .WaitFor(orderService)
+    .WaitFor(inventoryService)
+    .WaitFor(productService);
 
 var server = builder.AddProject<Projects.NexusOps_Server>("server")
     .WithHttpHealthCheck("/health")
