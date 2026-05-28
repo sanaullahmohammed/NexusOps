@@ -2,9 +2,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 var _ = builder.AddProject<Projects.NexusOps_AgentHost>("agent-host")
     .WithHttpHealthCheck("/health")
-    .WithExternalHttpEndpoints()
-    .WithEnvironment("AzureAI__ApiKey",
-        builder.Configuration["AZURE_AI_FOUNDRY_API_KEY"] ?? string.Empty);
+    .WithExternalHttpEndpoints();
 
 var server = builder.AddProject<Projects.NexusOps_Server>("server")
     .WithHttpHealthCheck("/health")

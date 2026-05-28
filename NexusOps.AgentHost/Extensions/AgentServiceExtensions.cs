@@ -12,7 +12,18 @@ public static class AgentServiceExtensions
 {
     public static IServiceCollection AddAgentServices(this IServiceCollection services, IConfiguration config)
     {
-        services.Configure<AzureAIOptions>(config.GetSection("AzureAI"));
+        services.Configure<AzureAIOptions>(options =>
+        {
+            config.GetSection("AzureAI").Bind(options);
+            if (string.IsNullOrWhiteSpace(options.ApiKey) || options.ApiKey == "<your-api-key>")
+            {
+                var envKey = config["AZURE_AI_FOUNDRY_API_KEY"];
+                if (!string.IsNullOrWhiteSpace(envKey))
+                {
+                    options.ApiKey = envKey;
+                }
+            }
+        });
 
         services.AddSingleton(sp =>
         {
