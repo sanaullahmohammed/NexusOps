@@ -1,5 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+var redis = builder.AddRedis("redis")
+    .WithDataVolume();
+
 var orderService = builder.AddProject<Projects.NexusOps_OrderService>("order-service")
     .WithHttpHealthCheck("/health");
 
@@ -15,9 +18,11 @@ var agentHost = builder.AddProject<Projects.NexusOps_AgentHost>("agent-host")
     .WithReference(orderService)
     .WithReference(inventoryService)
     .WithReference(productService)
+    .WithReference(redis)
     .WaitFor(orderService)
     .WaitFor(inventoryService)
-    .WaitFor(productService);
+    .WaitFor(productService)
+    .WaitFor(redis);
 
 var server = builder.AddProject<Projects.NexusOps_Server>("server")
     .WithHttpHealthCheck("/health")

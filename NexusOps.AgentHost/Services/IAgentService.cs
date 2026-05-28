@@ -2,5 +2,5 @@ namespace NexusOps.AgentHost.Services;
 
 public interface IAgentService
 {
-    Task<string> SendAsync(string prompt, CancellationToken cancellationToken = default);
+    Task<(string Response, string SessionId)> SendAsync(string prompt, string? sessionId, CancellationToken cancellationToken = default);
 }

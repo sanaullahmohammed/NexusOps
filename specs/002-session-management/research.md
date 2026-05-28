@@ -83,13 +83,25 @@
 
 ---
 
+## Decision 8: Class Naming — `ConversationSessionOptions`
+
+**Decision**: The configuration options class is named `ConversationSessionOptions` (not `SessionOptions`).
+
+**Rationale**: `Microsoft.AspNetCore.Builder.SessionOptions` is imported globally via the Web SDK's implicit usings in all `.NET SDK.Web` projects. Naming our class `SessionOptions` introduced a compile-time ambiguity that required a type alias (`using SessionOptions = ...`) in every file that referenced it. Renaming to `ConversationSessionOptions` eliminates the collision and removes the alias entirely — all files use a plain `using NexusOps.AgentHost.Configuration;` import. The config section key path (`Session:MaxTurns`, `Session:SlidingExpirationMinutes`) is unchanged; only the C# class name changed.
+
+**Alternatives considered**:
+- Type alias `using SessionOptions = NexusOps.AgentHost.Configuration.SessionOptions;` in every consumer file → rejected: noise on every import, easy to forget in new files, misleading at a glance.
+- Fully-qualified references (`NexusOps.AgentHost.Configuration.SessionOptions` at each use site) → rejected: verbose; doesn't scale.
+
+---
+
 ## Resolved Unknowns
 
 | Unknown | Resolution |
 |---------|-----------|
 | `AIAgent.RunAsync` history signature | `RunAsync(IEnumerable<ChatMessage>, AgentSession, AgentRunOptions, CancellationToken)` — pass full message list; `AgentSession` = null |
-| Aspire Redis AppHost package | `Aspire.Hosting.Redis` v13.2.2 |
-| Aspire Redis client package | `Aspire.StackExchange.Redis.DistributedCaching` v13.2.1 |
+| Aspire Redis AppHost package | `Aspire.Hosting.Redis` v13.3.5 |
+| Aspire Redis client package | `Aspire.StackExchange.Redis.DistributedCaching` v13.3.5 |
 | OTel auto-wiring for Redis | Confirmed — transitive `OpenTelemetry.Instrumentation.StackExchangeRedis` auto-registered |
 | Session ID format | `Guid` (lowercase hyphenated string) |
 | Concurrent write strategy | Last-write-wins (see clarification Q5) |

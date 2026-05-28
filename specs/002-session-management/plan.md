@@ -14,8 +14,8 @@ Add Redis-backed conversation history to `POST /api/chat` so the AI agent can re
 
 **Primary Dependencies**:
 - `Microsoft.Agents.AI` 1.8.0 — `AIAgent.RunAsync(IEnumerable<ChatMessage>, AgentSession, AgentRunOptions, CancellationToken)`
-- `Aspire.Hosting.Redis` 13.2.2 — AppHost Redis resource provisioning
-- `Aspire.StackExchange.Redis.DistributedCaching` 13.2.1 — `IDistributedCache` with OTel auto-wiring
+- `Aspire.Hosting.Redis` 13.3.5 — AppHost Redis resource provisioning
+- `Aspire.StackExchange.Redis.DistributedCaching` 13.3.5 — `IDistributedCache` with OTel auto-wiring
 - `System.Text.Json` (in-box) — `ConversationTurn` serialisation
 
 **Storage**: Redis (via Aspire; `IDistributedCache` abstraction); sliding TTL 30 min; key `nexusops:session:{guid}`
@@ -63,13 +63,13 @@ NexusOps.AgentHost/
 ├── NexusOps.AgentHost.csproj          ← add Aspire.StackExchange.Redis.DistributedCaching
 ├── Program.cs                         ← register Redis distributed cache + IConversationStore
 ├── Configuration/
-│   └── SessionOptions.cs              ← new: MaxTurns, SlidingExpirationMinutes
+│   └── ConversationSessionOptions.cs  ← new: MaxTurns, SlidingExpirationMinutes
 ├── Services/
 │   ├── IConversationStore.cs          ← new: GetHistoryAsync, AppendTurnsAsync, DeleteSessionAsync
-│   ├── RedisConversationStore.cs      ← new: IDistributedCache implementation
+│   ├── RedisConversationStore.cs      ← new: IDistributedCache implementation; emits session.degraded
 │   ├── ConversationTurn.cs            ← new: DTO (Role, Content, Timestamp)
 │   ├── IAgentService.cs               ← update: SendAsync gains sessionId parameter
-│   └── AgentService.cs                ← update: load history → RunAsync(messages) → save history
+│   └── AgentService.cs                ← update: load history → RunAsync(messages) → save history; emits session.created/history_loaded/history_saved
 └── Endpoints/
     └── ChatEndpoints.cs               ← update: ChatRequest + sessionId, ChatResponse + sessionId
 ```
@@ -89,7 +89,7 @@ No new projects. No new `.gitignore` files required (changes are within existing
 ### Phase B — AgentHost: Configuration + Store
 
 1. Add `Aspire.StackExchange.Redis.DistributedCaching` to `NexusOps.AgentHost.csproj`
-2. Create `Configuration/SessionOptions.cs` with `MaxTurns` (default 20) and `SlidingExpirationMinutes` (default 30)
+2. Create `Configuration/ConversationSessionOptions.cs` with `MaxTurns` (default 20) and `SlidingExpirationMinutes` (default 30)
 3. Create `Services/ConversationTurn.cs` — record with `Role`, `Content`, `Timestamp`
 4. Create `Services/IConversationStore.cs` — interface with three methods
 5. Create `Services/RedisConversationStore.cs` — `IDistributedCache` implementation:
@@ -114,7 +114,8 @@ No new projects. No new `.gitignore` files required (changes are within existing
    - Call `_agent.RunAsync(messages, session: null, options: null, cancellationToken)`
    - Extract response string
    - `AppendTurnsAsync` with user + assistant turns
-   - Emit lifecycle trace events (FR-012): session.created / session.history_loaded / session.history_saved / session.degraded
+   - Emit lifecycle log events (FR-012) from `AgentService`: `session.created` (Info), `session.history_loaded` (Debug), `session.history_saved` (Debug)
+   - `session.degraded` (Warning) is emitted by `RedisConversationStore` directly — it has the exception context and can categorise the failure as `connection`, `timeout`, or `serialisation`
    - Return `(responseText, sessionId)`
 3. Update `ChatEndpoints.cs`:
    - `ChatRequest` gains `string? SessionId`

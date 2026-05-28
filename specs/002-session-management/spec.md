@@ -4,7 +4,7 @@
 
 **Created**: 2026-05-28
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "Session management with Redis-backed conversation history on POST /api/chat — makes the agent truly conversational; client sends optional sessionId, server echoes it back or mints a new one; conversation history loaded from store, passed to agent, then saved back."
 
