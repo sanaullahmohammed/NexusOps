@@ -96,7 +96,7 @@ curl -X POST http://localhost:<port>/api/chat \
 
 Azure AI credentials are configured via `AzureAI` section in appsettings:
 - `AzureAI:Endpoint` — Cognitive Services endpoint URL
-- `AzureAI:ApiKey` — injected at runtime via Aspire `WithEnvironment("AzureAI__ApiKey", ...)`
+- `AzureAI:ApiKey` — resolved in AgentHost via `AzureAI:ApiKey` or environment variable `AZURE_AI_FOUNDRY_API_KEY` (fallback)
 - `AzureAI:DeploymentName` — model deployment name
 - `AzureAI:AgentName` / `AzureAI:AgentInstructions` — optional overrides (defaults in `AzureAIOptions.cs`)
 
