@@ -1,0 +1,62 @@
+# Git Branching Workflow Extension Configuration
+# Copied to .specify/extensions/git/git-config.yml on install
+
+# Branch numbering strategy: "sequential" (001, 002, ...) or "timestamp" (YYYYMMDD-HHMMSS)
+branch_numbering: sequential
+
+# Commit message used by `git commit` during repository initialization
+init_commit_message: "chore: initial commit"
+
+# Auto-commit before/after core commands.
+# Set "default" to enable for all commands, then override per-command.
+# Each key can be true/false. Message is customizable per-command.
+auto_commit:
+  default: false
+  before_clarify:
+    enabled: false
+    message: "chore(spec): save progress before clarification"
+  before_plan:
+    enabled: false
+    message: "chore(spec): save progress before planning"
+  before_tasks:
+    enabled: false
+    message: "chore(spec): save progress before task generation"
+  before_implement:
+    enabled: false
+    message: "chore(spec): save progress before implementation"
+  before_checklist:
+    enabled: false
+    message: "chore(spec): save progress before checklist"
+  before_analyze:
+    enabled: false
+    message: "chore(spec): save progress before analysis"
+  before_taskstoissues:
+    enabled: false
+    message: "chore(spec): save progress before issue sync"
+  after_constitution:
+    enabled: false
+    message: "docs(constitution): add project constitution"
+  after_specify:
+    enabled: false
+    message: "docs(spec): add feature specification"
+  after_clarify:
+    enabled: false
+    message: "docs(spec): clarify feature specification"
+  after_plan:
+    enabled: false
+    message: "docs(plan): add implementation plan"
+  after_tasks:
+    enabled: false
+    message: "docs(tasks): add task breakdown"
+  after_implement:
+    enabled: false
+    message: "feat: implementation progress"
+  after_checklist:
+    enabled: false
+    message: "docs(checklist): add completion checklist"
+  after_analyze:
+    enabled: false
+    message: "docs(analysis): add consistency analysis"
+  after_taskstoissues:
+    enabled: false
+    message: "chore(issues): sync tasks to GitHub issues"
