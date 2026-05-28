@@ -2,6 +2,8 @@
 
 <!-- SPECKIT START -->
 
+**Active Feature Plan**: [specs/001-ecommerce-domain-services/plan.md](specs/001-ecommerce-domain-services/plan.md)
+
 ## Project Overview
 
 NexusOps is a domain-agnostic AI agent orchestrator that cleanly separates LLM cognition from durable workflow execution. An AI agent (Azure AI Foundry) handles natural language understanding and tool selection; a MassTransit saga orchestrator handles long-running workflows, approval gates, failure recovery, and compensation. They communicate through a message bus boundary.
