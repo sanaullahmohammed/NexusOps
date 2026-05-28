@@ -1,6 +1,7 @@
 using Microsoft.OpenApi;
 using NexusOps.AgentHost.Endpoints;
 using NexusOps.AgentHost.Extensions;
+using NexusOps.AgentHost.Tools;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,6 +21,14 @@ builder.Services.AddOpenApi(options =>
         return Task.CompletedTask;
     });
 });
+builder.Services.AddHttpClient("order-service", client =>
+    client.BaseAddress = new Uri("http://order-service"));
+builder.Services.AddHttpClient("inventory-service", client =>
+    client.BaseAddress = new Uri("http://inventory-service"));
+builder.Services.AddHttpClient("product-service", client =>
+    client.BaseAddress = new Uri("http://product-service"));
+
+builder.Services.AddToolHandlers(builder.Configuration);
 builder.Services.AddAgentServices(builder.Configuration);
 
 var app = builder.Build();

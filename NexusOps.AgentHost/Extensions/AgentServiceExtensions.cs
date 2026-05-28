@@ -1,5 +1,6 @@
 using Azure.AI.OpenAI;
 using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using NexusOps.AgentHost.Configuration;
 using NexusOps.AgentHost.Services;
@@ -53,12 +54,14 @@ public static class AgentServiceExtensions
         {
             var opts = sp.GetRequiredService<IOptions<AzureAIOptions>>().Value;
             var azureOpenAiClient = sp.GetRequiredService<AzureOpenAIClient>();
+            var tools = sp.GetRequiredService<IList<AITool>>();
 
             ChatClient chatClient = azureOpenAiClient.GetChatClient(opts.DeploymentName);
 
             AIAgent agent = chatClient.AsAIAgent(
                 name: opts.AgentName,
-                instructions: opts.AgentInstructions);
+                instructions: opts.AgentInstructions,
+                tools: tools);
 
             return agent;
         });
