@@ -2,6 +2,7 @@ using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using NexusOps.AgentHost.Configuration;
+using System.Linq;
 
 namespace NexusOps.AgentHost.Services;
 
@@ -29,7 +30,7 @@ public sealed class AgentService : IAgentService
         if (!callerSuppliedId)
         {
             sessionId = Guid.NewGuid().ToString();
-            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", sessionId[..8], now);
+            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", SanitizeForLog(sessionId[..8]), now);
         }
 
         var history = await _store.GetHistoryAsync(sessionId!, cancellationToken);
@@ -38,11 +39,11 @@ public sealed class AgentService : IAgentService
         if (callerSuppliedId && history.Count == 0)
         {
             sessionId = Guid.NewGuid().ToString();
-            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", sessionId[..8], now);
+            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", SanitizeForLog(sessionId[..8]), now);
         }
         else if (!callerSuppliedId || history.Count > 0)
         {
-            _logger.LogDebug("session.history_loaded {SessionIdPrefix} {TurnCount} {Timestamp}", sessionId![..8], history.Count, now);
+            _logger.LogDebug("session.history_loaded {SessionIdPrefix} {TurnCount} {Timestamp}", SanitizeForLog(sessionId![..8]), history.Count, now);
         }
 
         var messages = new List<ChatMessage>(history.Count + 1);
@@ -72,8 +73,13 @@ public sealed class AgentService : IAgentService
         await _store.AppendTurnsAsync(sessionId!, [userTurn, assistantTurn], options, cancellationToken);
 
         var savedCount = Math.Min(history.Count + 2, options.MaxTurns);
-        _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", sessionId![..8], savedCount, DateTimeOffset.UtcNow);
+        _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", SanitizeForLog(sessionId![..8]), savedCount, DateTimeOffset.UtcNow);
 
         return (responseText, sessionId!);
+    }
+
+    private static string SanitizeForLog(string value)
+    {
+        return new string(value.Where(c => !char.IsControl(c)).ToArray());
     }
 }
