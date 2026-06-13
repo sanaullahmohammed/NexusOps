@@ -66,6 +66,15 @@ public sealed class RedisConversationStore(IDistributedCache cache, ILogger<Redi
         }
     }
 
+    private static string SanitiseSessionIdPrefix(string sessionId, int maxLength = 8)
+    {
+        if (string.IsNullOrEmpty(sessionId))
+            return string.Empty;
+
+        var prefix = sessionId[..Math.Min(maxLength, sessionId.Length)];
+        return prefix.Replace("\r", string.Empty).Replace("\n", string.Empty);
+    }
+
     private void LogDegraded(string sessionId, Exception ex, bool historyLoadedBeforeFailure, int turnCountLoaded)
     {
         var errorCategory = ex switch
@@ -78,7 +87,7 @@ public sealed class RedisConversationStore(IDistributedCache cache, ILogger<Redi
 
         logger.LogWarning(
             "session.degraded {SessionIdPrefix} {ErrorCategory} {HistoryLoadedBeforeFailure} {TurnCountLoaded} {Timestamp}",
-            sessionId[..Math.Min(8, sessionId.Length)],
+            SanitiseSessionIdPrefix(sessionId),
             errorCategory,
             historyLoadedBeforeFailure,
             turnCountLoaded,
