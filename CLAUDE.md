@@ -2,7 +2,7 @@
 
 <!-- SPECKIT START -->
 
-**Active Feature Plan**: [specs/001-ecommerce-domain-services/plan.md](specs/001-ecommerce-domain-services/plan.md)
+**Active Feature Plan**: [specs/002-session-management/plan.md](specs/002-session-management/plan.md)
 
 ## Project Overview
 
@@ -46,6 +46,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 | Model Provider | Azure AI Foundry (AzureOpenAIClient) |
 | App Orchestration | .NET Aspire |
 | Agent Host | ASP.NET Core Minimal APIs |
+| Session Store | Redis via `IDistributedCache` (Aspire-managed) |
 | Durable Orchestration | MassTransit + RabbitMQ (planned) |
 | Saga Persistence | PostgreSQL + EF Core (planned) |
 | Frontend | React 19 + Vite + TypeScript |
@@ -55,8 +56,9 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 ## Current Build State
 
 **Implemented:**
-- Aspire AppHost wires up AgentHost, Server, and all three domain services with health checks and service discovery
-- AgentHost: Azure AI Foundry agent wired via `AzureOpenAIClient` → `AIAgent`, stateless `POST /api/chat` endpoint
+- Aspire AppHost wires up AgentHost, Server, all three domain services, and Redis with health checks and service discovery
+- AgentHost: Azure AI Foundry agent wired via `AzureOpenAIClient` → `AIAgent`, session-aware `POST /api/chat` endpoint
+- **Session Management** (feature #2): Redis-backed conversation history on `POST /api/chat`; client supplies optional `sessionId`, server mints a new UUID v4 if absent; history loaded/saved per request; 30-min sliding TTL; 20-turn cap (oldest-first trim); graceful degradation on store failure; structured lifecycle logging (`session.created`, `session.history_loaded`, `session.history_saved`, `session.degraded`)
 - **NexusOps.Contracts**: Shared library with `ToolResult<T>`, `ToolNames`, `SeedDataConstants`, and all response DTOs
 - **NexusOps.OrderService**: ASP.NET Core Minimal API — `GET /orders/anomalies`, `GET /orders/{id}`, in-memory seed data (10 orders)
 - **NexusOps.InventoryService**: ASP.NET Core Minimal API — `GET /inventory/alerts`, `GET /inventory/{sku}`, in-memory seed data (15 records)
@@ -67,13 +69,11 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 - Frontend: React + Vite scaffold with Aspire proxy integration
 
 **Planned (from roadmap):**
-- Domain services: Product, Order, Inventory (HTTP APIs + MassTransit consumers)
 - Workflow Orchestrator: MassTransit sagas, PostgreSQL state
 - Notification Service: Node.js/TypeScript
 - React chat UI (replacing scaffold)
-- Tool definitions wired to the agent
 - Evaluation dataset + runner
-- Integration tests, Redis session cache, Kubernetes manifests
+- Integration tests, Kubernetes manifests
 
 ## Running the Application
 
@@ -86,13 +86,19 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 dotnet run --project NexusOps.AppHost
 ```
 
-Aspire starts all services, RabbitMQ, and PostgreSQL. The developer dashboard opens automatically with distributed tracing, logs, and metrics.
+Aspire starts all services and Redis. The developer dashboard opens automatically with distributed tracing, logs, and metrics.
 
 ```bash
-# Send a chat request
+# Send a chat request (new session — server mints a sessionId)
 curl -X POST http://localhost:<port>/api/chat \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Show me all delayed orders"}'
+# Response: { "response": "...", "sessionId": "<guid>" }
+
+# Continue the conversation (supply the sessionId from the previous response)
+curl -X POST http://localhost:<port>/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is the status of the second one?", "sessionId": "<guid>"}'
 ```
 
 ## Project Conventions
@@ -120,6 +126,7 @@ This matches the pattern used by all existing projects (`NexusOps.AgentHost`, `N
 - **Side effects require approval.** Any mutation goes through `OrderActionSaga` with a human approval gate. Reads auto-execute.
 - **AMQP for saga-to-service communication.** Sagas dispatch commands to domain services via RabbitMQ — full delivery guarantees, retry, dead-letter.
 - **Domain-pluggable core.** AppHost + AgentHost + WorkflowOrchestrator are domain-agnostic. E-Commerce is a replaceable sample pack.
+- **Session history as a cache, not a store.** Conversation history lives in Redis with a sliding TTL; the agent is always stateless on the compute side. Store failures degrade gracefully to stateless operation — the endpoint never returns 5xx due to Redis unavailability.
 
 ## Configuration
 
@@ -128,6 +135,10 @@ Azure AI credentials are configured via `AzureAI` section in appsettings:
 - `AzureAI:ApiKey` — resolved in AgentHost via `AzureAI:ApiKey` or environment variable `AZURE_AI_FOUNDRY_API_KEY` (fallback)
 - `AzureAI:DeploymentName` — model deployment name
 - `AzureAI:AgentName` / `AzureAI:AgentInstructions` — optional overrides (defaults in `AzureAIOptions.cs`)
+
+Session management is configured via `Session` section in appsettings (class: `ConversationSessionOptions`):
+- `Session:MaxTurns` — maximum turns retained per session (default: `20`; must be ≥ 1, app fails at startup if ≤ 0)
+- `Session:SlidingExpirationMinutes` — inactivity window before Redis evicts the session (default: `30`)
 
 ## CI/CD
 
