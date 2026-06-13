@@ -3,6 +3,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using NexusOps.AgentHost.Configuration;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace NexusOps.AgentHost.Services;
 
@@ -30,7 +32,7 @@ public sealed class AgentService : IAgentService
         if (!callerSuppliedId)
         {
             sessionId = Guid.NewGuid().ToString();
-            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", SanitizeForLog(sessionId[..8]), now);
+            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", GetSessionLogToken(sessionId), now);
         }
 
         var history = await _store.GetHistoryAsync(sessionId!, cancellationToken);
@@ -39,11 +41,11 @@ public sealed class AgentService : IAgentService
         if (callerSuppliedId && history.Count == 0)
         {
             sessionId = Guid.NewGuid().ToString();
-            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", SanitizeForLog(sessionId[..8]), now);
+            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", GetSessionLogToken(sessionId), now);
         }
         else if (!callerSuppliedId || history.Count > 0)
         {
-            _logger.LogDebug("session.history_loaded {SessionIdPrefix} {TurnCount} {Timestamp}", SanitizeForLog(sessionId![..8]), history.Count, now);
+            _logger.LogDebug("session.history_loaded {SessionIdPrefix} {TurnCount} {Timestamp}", GetSessionLogToken(sessionId), history.Count, now);
         }
 
         var messages = new List<ChatMessage>(history.Count + 1);
@@ -73,13 +75,20 @@ public sealed class AgentService : IAgentService
         await _store.AppendTurnsAsync(sessionId!, [userTurn, assistantTurn], options, cancellationToken);
 
         var savedCount = Math.Min(history.Count + 2, options.MaxTurns);
-        _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", SanitizeForLog(sessionId![..8]), savedCount, DateTimeOffset.UtcNow);
+        _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", GetSessionLogToken(sessionId), savedCount, DateTimeOffset.UtcNow);
 
         return (responseText, sessionId!);
     }
 
-    private static string SanitizeForLog(string value)
+    private static string GetSessionLogToken(string? sessionId)
     {
-        return new string(value.Where(c => !char.IsControl(c)).ToArray());
+        if (string.IsNullOrWhiteSpace(sessionId))
+        {
+            return "null";
+        }
+
+        var bytes = Encoding.UTF8.GetBytes(sessionId);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToHexString(hash)[..8];
     }
 }
