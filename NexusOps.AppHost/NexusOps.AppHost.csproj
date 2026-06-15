@@ -20,6 +20,6 @@
     <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.4.3" />
     <PackageReference Include="Aspire.Hosting.Redis" Version="13.4.3" />
     <!-- Override transitive MessagePack from KubernetesClient (via Aspire.Dashboard.Sdk) to address GHSA-hv8m-jj95-wg3x -->
-    <PackageReference Include="MessagePack" Version="2.5.302" />
+    <PackageReference Include="MessagePack" Version="3.1.7" />
   </ItemGroup>
 </Project>
