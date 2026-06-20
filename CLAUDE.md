@@ -32,7 +32,6 @@ NexusOps.InventoryService/ # ASP.NET Core Minimal API — inventory read operati
 NexusOps.ProductService/   # ASP.NET Core Minimal API — product read operations, in-memory seed data
 NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
 frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
-.spec-kit/commands/        # Spec-kit slash command definitions
 .specify/                  # Spec-kit configuration, templates, memory, extensions
 ```
 
@@ -51,7 +50,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 | Saga Persistence | PostgreSQL + EF Core (planned) |
 | Frontend | React 19 + Vite + TypeScript |
 | Notification Service | Node.js + Express + TypeScript + amqplib (planned) |
-| Observability | OpenTelemetry via Aspire ServiceDefaults |
+| Observability | OpenTelemetry via AgentHost extensions |
 
 ## Current Build State
 
@@ -65,7 +64,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 - **NexusOps.ProductService**: ASP.NET Core Minimal API — `GET /products/{sku}`, `GET /products?category=`, in-memory seed data (15 products)
 - **6 Direct-path tools** wired into AgentHost via `AIFunctionFactory.Create(...)`: `investigate_order_anomaly`, `get_order_details`, `get_inventory_alerts`, `get_inventory_level`, `get_product_details`, `list_products_by_category`
 - Agent instructions updated with canonical tool routing rules and multi-tool cross-service composition guidance
-- ServiceDefaults: shared OTEL, health checks, resilience extension methods
+- OTEL, health checks, and resilience extension methods implemented inline in `NexusOps.AgentHost/Extensions/` (`ServiceDefaultsExtensions.cs`, `OpenTelemetryExtensions.cs`, `HealthCheckExtensions.cs`) — no separate shared project
 - Frontend: React + Vite scaffold with Aspire proxy integration
 
 **Planned (from roadmap):**
@@ -77,7 +76,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 
 ## Running the Application
 
-**Prerequisites:** .NET 10 SDK, Node.js 20+, Docker Desktop, Azure AI Foundry credentials.
+**Prerequisites:** .NET 10 SDK, Node.js 24+, Docker Desktop, Azure AI Foundry credentials.
 
 ```bash
 # Set credentials in appsettings.Development.json (AgentHost) or via env
@@ -154,7 +153,7 @@ Dependabot config at `.github/dependabot.yml` keeps NuGet, npm, and GitHub Actio
 
 **Solution filter — `NexusOps.deployable.slnf`**
 
-`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to `NexusOps.AgentHost` and `NexusOps.Server` only — the two deployable services. `NexusOps.AppHost` is excluded because it is a dev-only Aspire orchestrator. Local development is unaffected; open `NexusOps.sln` as normal.
+`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to six projects: `NexusOps.AgentHost`, `NexusOps.Contracts`, `NexusOps.InventoryService`, `NexusOps.OrderService`, `NexusOps.ProductService`, and `NexusOps.Server`. `NexusOps.AppHost` is excluded because it is a dev-only Aspire orchestrator. Local development is unaffected; open `NexusOps.sln` as normal.
 
 **Azure AI credentials in CI**
 

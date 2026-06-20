@@ -109,7 +109,7 @@
 - [x] T022 [P] Add structured lifecycle logging in `NexusOps.AgentHost/Services/AgentService.cs` — inject `ILogger<AgentService>`; emit `LogInformation` (or `LogWarning` for degraded) at: session created, history loaded (include turn count), history saved (include turn count), store unavailable/degraded (include exception message) — satisfies FR-012
 - [x] T023 [P] Add `RedisConversationStore.DeleteSessionAsync` — verify it is wired and callable (already implemented in T020; confirm it is accessible via the `IConversationStore` interface and registered in DI)
 - [x] T024 Update the OpenAPI description on the `POST /api/chat` endpoint in `NexusOps.AgentHost/Endpoints/ChatEndpoints.cs` — update `WithDescription` to document the `sessionId` field and session lifecycle behaviour
-- [ ] T025 Run end-to-end smoke test via Aspire — start all services; send a two-turn `POST /api/chat` sequence; confirm Aspire dashboard shows Redis GET/SET spans as child spans of the chat request trace; confirm `session.created` and `session.history_loaded` log lines appear in AgentHost structured logs
+- [x] T025 Run end-to-end smoke test via Aspire — start all services; send a two-turn `POST /api/chat` sequence; confirm Aspire dashboard shows Redis GET/SET spans as child spans of the chat request trace; confirm `session.created` and `session.history_loaded` log lines appear in AgentHost structured logs
 
 ---
 
@@ -147,7 +147,7 @@ T002  NexusOps.AgentHost/NexusOps.AgentHost.csproj
 
 # Phase 2 — T004, T005, T006 are independent new files:
 T004  NexusOps.AgentHost/Services/ConversationTurn.cs
-T005  NexusOps.AgentHost/Configuration/SessionOptions.cs
+T005  NexusOps.AgentHost/Configuration/ConversationSessionOptions.cs
 T006  NexusOps.AgentHost/Services/IConversationStore.cs
 
 # Phase 7 — T022 and T023 touch different files:
