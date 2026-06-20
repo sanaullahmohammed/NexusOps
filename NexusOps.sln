@@ -12,6 +12,8 @@ Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "frontend", "frontend\fronte
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NexusOps.Contracts", "NexusOps.Contracts\NexusOps.Contracts.csproj", "{141453E9-6538-48F0-9DD9-CF5D5DE3EBE6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NexusOps.ServiceDefaults", "NexusOps.ServiceDefaults\NexusOps.ServiceDefaults.csproj", "{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NexusOps.OrderService", "NexusOps.OrderService\NexusOps.OrderService.csproj", "{B1BBBA14-2634-4938-94B7-B84A59E9418D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NexusOps.InventoryService", "NexusOps.InventoryService\NexusOps.InventoryService.csproj", "{93B89326-6D15-40CD-AAB0-37BF019561EE}"
@@ -84,6 +86,18 @@ Global
 		{141453E9-6538-48F0-9DD9-CF5D5DE3EBE6}.Release|x64.Build.0 = Release|Any CPU
 		{141453E9-6538-48F0-9DD9-CF5D5DE3EBE6}.Release|x86.ActiveCfg = Release|Any CPU
 		{141453E9-6538-48F0-9DD9-CF5D5DE3EBE6}.Release|x86.Build.0 = Release|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Debug|x64.Build.0 = Debug|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Debug|x86.Build.0 = Debug|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Release|x64.ActiveCfg = Release|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Release|x64.Build.0 = Release|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Release|x86.ActiveCfg = Release|Any CPU
+		{D1E2F3A4-B5C6-47D8-E9F0-A1B2C3D4E5F6}.Release|x86.Build.0 = Release|Any CPU
 		{B1BBBA14-2634-4938-94B7-B84A59E9418D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B1BBBA14-2634-4938-94B7-B84A59E9418D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B1BBBA14-2634-4938-94B7-B84A59E9418D}.Debug|x64.ActiveCfg = Debug|Any CPU

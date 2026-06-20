@@ -3,6 +3,7 @@
     "path": "NexusOps.sln",
     "projects": [
       "NexusOps.AgentHost\\NexusOps.AgentHost.csproj",
+      "NexusOps.ServiceDefaults\\NexusOps.ServiceDefaults.csproj",
       "NexusOps.Contracts\\NexusOps.Contracts.csproj",
       "NexusOps.InventoryService\\NexusOps.InventoryService.csproj",
       "NexusOps.OrderService\\NexusOps.OrderService.csproj",

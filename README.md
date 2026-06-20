@@ -194,6 +194,7 @@ curl -X POST http://localhost:<port>/api/chat \
 
 ```
 NexusOps.AppHost/          # Aspire AppHost — topology, service discovery, env wiring
+NexusOps.ServiceDefaults/  # Shared class library — OTEL, health checks, resilience (referenced by all services)
 NexusOps.AgentHost/        # ASP.NET Core + Agent Framework — LLM reasoning, tool dispatch, session management
 NexusOps.Contracts/        # Shared library — ToolResult<T>, ToolNames, SeedDataConstants, response DTOs
 NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations, in-memory seed data
