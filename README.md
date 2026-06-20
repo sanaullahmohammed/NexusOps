@@ -116,7 +116,7 @@ The sample domain simulates the backend systems of an e-commerce platform. A use
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) (or current supported version)
-- [Node.js 20+](https://nodejs.org/)
+- [Node.js 24+](https://nodejs.org/)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
 - Azure AI Foundry credentials (endpoint URL, API key, deployment name)
 
@@ -133,21 +133,27 @@ cd NexusOps
 
 ### 2. Configure Azure AI Foundry credentials
 
-Copy the example environment file and add your credentials:
+Add your credentials to `NexusOps.AgentHost/appsettings.Development.json`:
 
-```bash
-cp .env.example .env
+```json
+{
+  "AzureAI": {
+    "Endpoint": "<your-endpoint>",
+    "ApiKey": "<your-api-key>",
+    "DeploymentName": "<your-deployment>"
+  }
+}
 ```
 
-Edit `.env` with your Azure AI Foundry endpoint, API key, and model deployment name.
+Alternatively set `AZURE_AI_FOUNDRY_API_KEY` as an environment variable (the endpoint and deployment name still come from appsettings).
 
 ### 3. Run the application
 
 ```bash
-dotnet run --project src/NexusOps.AppHost
+dotnet run --project NexusOps.AppHost
 ```
 
-This starts everything — all application services, RabbitMQ, and PostgreSQL — with service discovery and telemetry wired automatically via Aspire.
+This starts all implemented services and Redis with service discovery and telemetry wired automatically via Aspire.
 
 ### 4. Open the Aspire Dashboard
 
@@ -156,9 +162,16 @@ The Aspire developer dashboard launches automatically and provides distributed t
 ### 5. Send a query
 
 ```bash
-curl -X POST http://localhost:<port>/api/chat/sessions \
+# New session — server mints a sessionId
+curl -X POST http://localhost:<port>/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Show me all delayed orders"}'
+  -d '{"prompt": "Show me all delayed orders"}'
+# Response: { "response": "...", "sessionId": "<guid>" }
+
+# Continue the conversation
+curl -X POST http://localhost:<port>/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is the status of the second one?", "sessionId": "<guid>"}'
 ```
 
 ---
@@ -180,23 +193,19 @@ curl -X POST http://localhost:<port>/api/chat/sessions \
 ## Project Structure
 
 ```
-src/
-├── NexusOps.AppHost/              # Aspire AppHost — declares topology, starts everything
-├── NexusOps.ServiceDefaults/      # Shared Aspire defaults (OTEL, health, resilience)
-├── NexusOps.AgentHost/            # ASP.NET Core + Agent Framework
-├── NexusOps.WorkflowOrchestrator/ # ASP.NET Core + MassTransit sagas
-├── NexusOps.ProductService/       # Product catalog API + MassTransit consumer
-├── NexusOps.OrderService/         # Order management API + MassTransit consumer
-├── NexusOps.InventoryService/     # Inventory/stock API + MassTransit consumer
-├── NexusOps.NotificationService/  # Node.js/TypeScript notification service
-packages/
-├── NexusOps.Contracts/            # Shared message types, DTOs, tool contracts
-├── NexusOps.Evaluation/           # Foundry evaluation dataset + runner
-├── NexusOps.SeedData/             # Synthetic data generators, scenario profiles
-docs/
-├── ARCHITECTURE.md                # Architecture details and ADRs
-├── demo-scenarios/                # Step-by-step demo walkthroughs
+NexusOps.AppHost/          # Aspire AppHost — topology, service discovery, env wiring
+NexusOps.AgentHost/        # ASP.NET Core + Agent Framework — LLM reasoning, tool dispatch, session management
+NexusOps.Contracts/        # Shared library — ToolResult<T>, ToolNames, SeedDataConstants, response DTOs
+NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations, in-memory seed data
+NexusOps.InventoryService/ # ASP.NET Core Minimal API — inventory read operations, in-memory seed data
+NexusOps.ProductService/   # ASP.NET Core Minimal API — product read operations, in-memory seed data
+NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
+frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
+.specify/                  # Spec-kit configuration, templates, memory, extensions
+specs/                     # Feature specifications, plans, and task lists
 ```
+
+> **Planned but not yet implemented:** `NexusOps.WorkflowOrchestrator` (MassTransit sagas), Notification Service (Node.js/TS), evaluation runner, full React chat UI.
 
 ---
 
@@ -236,12 +245,18 @@ dotnet run --project packages/NexusOps.Evaluation
 
 ## Roadmap
 
-- [ ] React frontend with AG-UI streaming
-- [ ] Integration test suite (saga tests, tool adapter tests)
-- [ ] CI/CD pipeline
-- [ ] Kafka audit/event stream
-- [ ] Redis session cache
+**Implemented:**
+- [x] Redis-backed session management (multi-turn conversation continuity, 30-min TTL, 20-turn cap, graceful degradation)
+- [x] CI/CD pipeline (build, CodeQL, dependency review, Dependabot)
+
+**Planned:**
+- [ ] Workflow Orchestrator (MassTransit sagas, PostgreSQL state)
+- [ ] Notification Service (Node.js/TypeScript)
+- [ ] React chat UI with AG-UI streaming
+- [ ] Integration test suite
+- [ ] Evaluation dataset + runner
 - [ ] Kubernetes deployment (Helm manifests)
+- [ ] Kafka audit/event stream
 - [ ] Second domain pack
 - [ ] Multiple agent personas
 
