@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -108,20 +109,36 @@ public static class Extensions
 
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        // Adding health checks endpoints to applications in non-development environments has security implications.
-        // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
+        // Readiness is mapped in every environment. Exposing health endpoints publicly does carry
+        // the security implications the Aspire template warns about
+        // (https://aka.ms/dotnet/aspire/healthchecks), but the AppHost probes this path and WaitFors
+        // it unconditionally, so gating it to Development left any non-Development start unable to
+        // ever reach a healthy state. The endpoint stays; restrict reachability at the ingress.
+        app.MapHealthChecks(HealthEndpointPath, new HealthCheckOptions
+        {
+            ResponseWriter = WriteHealthResponse
+        });
+
+        // Liveness remains Development-only — nothing outside the dashboard consumes it.
         if (app.Environment.IsDevelopment())
         {
-            // All health checks must pass for app to be considered ready to accept traffic after starting
-            app.MapHealthChecks(HealthEndpointPath);
-
-            // Only health checks tagged with the "live" tag must pass for app to be considered alive
             app.MapHealthChecks(AlivenessEndpointPath, new HealthCheckOptions
             {
-                Predicate = r => r.Tags.Contains("live")
+                Predicate = r => r.Tags.Contains("live"),
+                ResponseWriter = WriteHealthResponse
             });
         }
 
         return app;
+    }
+
+    /// <summary>
+    /// Emits the JSON body the service contracts document. The default writer returns the bare
+    /// string "Healthy" as text/plain, which no documented consumer expects.
+    /// </summary>
+    private static Task WriteHealthResponse(HttpContext context, HealthReport report)
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        return context.Response.WriteAsJsonAsync(new { status = report.Status.ToString().ToLowerInvariant() });
     }
 }

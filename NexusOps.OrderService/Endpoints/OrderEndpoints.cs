@@ -1,6 +1,6 @@
 using NexusOps.Contracts.Dtos;
+using NexusOps.OrderService.Anomalies;
 using NexusOps.OrderService.Data;
-using NexusOps.OrderService.Models;
 
 namespace NexusOps.OrderService.Endpoints;
 
@@ -8,50 +8,33 @@ public static class OrderEndpoints
 {
     public static WebApplication MapOrderEndpoints(this WebApplication app)
     {
-        app.MapGet("/orders/anomalies", (string? status) =>
+        app.MapGet("/orders/anomalies", (string? status, TimeProvider timeProvider) =>
         {
-            var anomalyStatuses = new HashSet<OrderStatus> { OrderStatus.Delayed, OrderStatus.Cancelled };
+            Models.AnomalyReason? filter = null;
 
             if (!string.IsNullOrWhiteSpace(status))
             {
-                var mapped = status.ToLowerInvariant() switch
+                filter = AnomalySelector.ParseReason(status);
+
+                if (filter is null)
                 {
-                    "delayed" => OrderStatus.Delayed,
-                    "missing" => OrderStatus.Cancelled,  // map missing → cancelled for seed purposes
-                    "payment-failed" => OrderStatus.Cancelled,
-                    _ => (OrderStatus?)null
-                };
-                if (mapped is null)
-                {
-                    return Results.BadRequest($"Unknown anomaly status: {status}");
+                    return Results.BadRequest(
+                        $"Unknown anomaly status '{status}'. Valid values are: {string.Join(", ", AnomalySelector.ValidFilters)}.");
                 }
-                anomalyStatuses = [mapped.Value];
             }
 
-            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            // Resolved once and threaded through both the seed and the projection, so every
+            // date-derived value in the response agrees.
+            var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
-            var anomalies = OrderStore.Orders
-                .Where(o => anomalyStatuses.Contains(o.Status))
-                .Select(o => new OrderAnomaly(
-                    OrderId: o.OrderId,
-                    AnomalyType: o.Status switch
-                    {
-                        OrderStatus.Delayed => "delayed",
-                        OrderStatus.Cancelled => status?.ToLowerInvariant() == "payment-failed" ? "payment-failed" : "missing",
-                        _ => "delayed"
-                    },
-                    Severity: o.Status == OrderStatus.Delayed ? "high" : "medium",
-                    DaysOverdue: o.Status == OrderStatus.Delayed
-                        ? (int?)(today.DayNumber - o.ExpectedDelivery.DayNumber)
-                        : null))
-                .ToArray();
-
-            return Results.Ok(anomalies);
+            return Results.Ok(AnomalySelector.Select(OrderStore.GetOrders(today), filter, today));
         });
 
-        app.MapGet("/orders/{orderId}", (string orderId) =>
+        app.MapGet("/orders/{orderId}", (string orderId, TimeProvider timeProvider) =>
         {
-            var order = OrderStore.Orders.FirstOrDefault(o =>
+            var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+
+            var order = OrderStore.GetOrders(today).FirstOrDefault(o =>
                 string.Equals(o.OrderId, orderId, StringComparison.OrdinalIgnoreCase));
 
             if (order is null)
@@ -66,11 +49,9 @@ public static class OrderEndpoints
                 TotalAmount: order.TotalAmount,
                 ExpectedDelivery: order.ExpectedDelivery,
                 ActualDelivery: order.ActualDelivery,
-                LineItems: order.LineItems.Select(li => new OrderLineItem(
-                    Sku: li.Sku,
-                    ProductName: li.ProductName,
-                    Quantity: li.Quantity,
-                    UnitPrice: li.UnitPrice)).ToArray());
+                LineItems: order.LineItems
+                    .Select(li => new OrderLineItem(li.Sku, li.ProductName, li.Quantity, li.UnitPrice))
+                    .ToArray());
 
             return Results.Ok(summary);
         });

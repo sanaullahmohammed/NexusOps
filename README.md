@@ -96,7 +96,7 @@ The sample domain simulates the backend systems of an e-commerce platform. A use
 
 **Product Service** — Product catalog: name, description, price, category, rating. Read-only.
 
-**Order Service** — Orders and order items with statuses: placed, confirmed, shipped, delivered, delayed, cancelled, refunded.
+**Order Service** — Orders and order items with lifecycle statuses: pending, processing, shipped, delivered, delayed, cancelled. Anomalous orders additionally carry an anomaly reason — delayed, missing, or payment-failed — which is what `investigate_order_anomaly` filters on.
 
 **Inventory Service** — Stock levels per product. Supports investigation queries like "why was this order delayed" (stock was zero at time of order).
 
@@ -133,19 +133,32 @@ cd NexusOps
 
 ### 2. Configure Azure AI Foundry credentials
 
-Add your credentials to `NexusOps.AgentHost/appsettings.Development.json`:
+**Use user secrets.** `appsettings.Development.json` is tracked by Git, so a key placed there is one
+`git commit -a` away from being published. User secrets live outside the repository entirely:
+
+```bash
+cd NexusOps.AgentHost
+dotnet user-secrets set "AzureAI:ApiKey"         "<your-api-key>"
+dotnet user-secrets set "AzureAI:Endpoint"       "<your-endpoint>"
+dotnet user-secrets set "AzureAI:DeploymentName" "<your-deployment>"
+```
+
+For CI and containers, supply the key as the `AZURE_AI_FOUNDRY_API_KEY` environment variable
+instead; the endpoint and deployment name are read from configuration as usual.
+
+The non-secret values may also be set in `appsettings.Development.json`, which ships with
+placeholders showing the shape:
 
 ```json
 {
   "AzureAI": {
     "Endpoint": "<your-endpoint>",
-    "ApiKey": "<your-api-key>",
     "DeploymentName": "<your-deployment>"
   }
 }
 ```
 
-Alternatively set `AZURE_AI_FOUNDRY_API_KEY` as an environment variable (the endpoint and deployment name still come from appsettings).
+Do not add `ApiKey` to that file.
 
 ### 3. Run the application
 
@@ -180,7 +193,7 @@ curl -X POST http://localhost:<port>/api/chat \
 
 **LLM for cognition, bus for durability.** The AI agent decides what to do. MassTransit guarantees it gets done. They never cross responsibilities.
 
-**Curated tools over raw Swagger.** The LLM sees high-level tools like `investigate_delayed_order` instead of `GET /orders?status=delayed`. Better tool selection, simpler prompts, safer boundaries.
+**Curated tools over raw Swagger.** The LLM sees high-level tools like `investigate_order_anomaly` instead of `GET /orders?status=delayed`. Better tool selection, simpler prompts, safer boundaries.
 
 **Side effects require approval.** Any operation that changes real-world state (refund, notification) goes through the OrderActionSaga with a human approval gate. Read operations auto-execute.
 
@@ -200,6 +213,7 @@ NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations,
 NexusOps.InventoryService/ # ASP.NET Core Minimal API — inventory read operations, in-memory seed data
 NexusOps.ProductService/   # ASP.NET Core Minimal API — product read operations, in-memory seed data
 NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
+NexusOps.Tests/            # xUnit — unit tests for anomaly classification, session handling, tool cancellation
 frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
 .specify/                  # Spec-kit configuration, templates, memory, extensions
 specs/                     # Feature specifications, plans, and task lists
@@ -233,13 +247,32 @@ Pauses for human approval before executing. Compensates if execution fails partw
 
 ---
 
-## Evaluation
-
-An evaluation dataset with test cases covering simple reads, multi-step investigations, action queries, and degraded scenarios. Uses Azure AI Foundry agent evaluators for tool selection accuracy, task completion, and tool call correctness.
+## Testing
 
 ```bash
-dotnet run --project packages/NexusOps.Evaluation
+dotnet test NexusOps.deployable.slnf          # unit tests
+cd frontend && npm run lint && npm run typecheck
 ```
+
+`NexusOps.Tests` covers anomaly classification and severity, order seed integrity, session
+resolution across store outages, turn trimming, startup configuration validation, and cancellation
+propagation through the tool handlers. It is unit-level by design — a fake `IDistributedCache` and a
+pinned `TimeProvider`, with no Redis or Azure AI dependency — so it runs on fork pull requests
+without secrets.
+
+Both commands run in CI on every push and pull request to `master`.
+
+---
+
+## Evaluation
+
+> **Planned — not yet implemented.** No evaluation project exists in the repository today.
+
+The intended design is an evaluation dataset with test cases covering simple reads, multi-step
+investigations, action queries, and degraded scenarios, scored by Azure AI Foundry agent evaluators
+for tool selection accuracy, task completion, and tool call correctness.
+
+For the automated checks that **do** run today, see [Testing](#testing).
 
 ---
 
@@ -248,6 +281,7 @@ dotnet run --project packages/NexusOps.Evaluation
 **Implemented:**
 - [x] Redis-backed session management (multi-turn conversation continuity, 30-min TTL, 20-turn cap, graceful degradation)
 - [x] CI/CD pipeline (build, CodeQL, dependency review, Dependabot)
+- [x] Unit test suite (`NexusOps.Tests`, runs in CI)
 
 **Planned:**
 - [ ] Workflow Orchestrator (MassTransit sagas, PostgreSQL state)

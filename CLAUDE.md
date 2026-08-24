@@ -2,7 +2,7 @@
 
 <!-- SPECKIT START -->
 
-**Active Feature Plan**: [specs/002-session-management/plan.md](specs/002-session-management/plan.md)
+**Active Feature Plan**: [specs/003-review-remediation/plan.md](specs/003-review-remediation/plan.md)
 
 ## Project Overview
 
@@ -31,6 +31,7 @@ NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations,
 NexusOps.InventoryService/ # ASP.NET Core Minimal API — inventory read operations, in-memory seed data
 NexusOps.ProductService/   # ASP.NET Core Minimal API — product read operations, in-memory seed data
 NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
+NexusOps.Tests/            # xUnit — unit tests across anomalies, sessions, and tool cancellation
 frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
 .specify/                  # Spec-kit configuration, templates, memory, extensions
 ```
@@ -57,15 +58,17 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 **Implemented:**
 - Aspire AppHost wires up AgentHost, Server, all three domain services, and Redis with health checks and service discovery
 - AgentHost: Azure AI Foundry agent wired via `AzureOpenAIClient` → `AIAgent`, session-aware `POST /api/chat` endpoint
-- **Session Management** (feature #2): Redis-backed conversation history on `POST /api/chat`; client supplies optional `sessionId`, server mints a new UUID v4 if absent; history loaded/saved per request; 30-min sliding TTL; 20-turn cap (oldest-first trim); graceful degradation on store failure; structured lifecycle logging (`session.created`, `session.history_loaded`, `session.history_saved`, `session.degraded`)
+- **Session Management** (feature #2, corrected by feature #3): Redis-backed conversation history on `POST /api/chat`; client supplies optional `sessionId`, server mints a new UUID v4 if absent; history loaded/saved per request; 30-min sliding TTL; 20-turn cap (oldest-first trim); structured lifecycle logging (`session.created`, `session.history_loaded`, `session.history_saved`, `session.degraded`) with a single hashed session token shared by all emitters. The store reports `Found`/`Missing`/`Unavailable`: a missing session mints a replacement, an unreachable store **preserves the caller's `sessionId`** and runs the turn statelessly. A blank prompt returns 400; an agent failure returns 500 carrying the `sessionId` the user turn was persisted under
 - **NexusOps.Contracts**: Shared library with `ToolResult<T>`, `ToolNames`, `SeedDataConstants`, and all response DTOs
-- **NexusOps.OrderService**: ASP.NET Core Minimal API — `GET /orders/anomalies`, `GET /orders/{id}`, in-memory seed data (10 orders)
+- **NexusOps.OrderService**: ASP.NET Core Minimal API — `GET /orders/anomalies`, `GET /orders/{id}`, in-memory seed data (11 orders, dates relative to the current date via `TimeProvider`). An order's anomaly type comes from an explicit `AnomalyReason` on the order, never from the query filter
 - **NexusOps.InventoryService**: ASP.NET Core Minimal API — `GET /inventory/alerts`, `GET /inventory/{sku}`, in-memory seed data (15 records)
 - **NexusOps.ProductService**: ASP.NET Core Minimal API — `GET /products/{sku}`, `GET /products?category=`, in-memory seed data (15 products)
 - **6 Direct-path tools** wired into AgentHost via `AIFunctionFactory.Create(...)`: `investigate_order_anomaly`, `get_order_details`, `get_inventory_alerts`, `get_inventory_level`, `get_product_details`, `list_products_by_category`
 - Agent instructions updated with canonical tool routing rules and multi-tool cross-service composition guidance
 - OTEL, health checks, and resilience extension methods implemented inline in `NexusOps.AgentHost/Extensions/` (`ServiceDefaultsExtensions.cs`, `OpenTelemetryExtensions.cs`, `HealthCheckExtensions.cs`) — no separate shared project
-- Frontend: React + Vite scaffold with Aspire proxy integration
+- Frontend: React + Vite scaffold with Aspire proxy integration (dev proxy falls back to localhost when the AppHost is not the launcher)
+- **NexusOps.Tests**: xUnit suite covering anomaly classification and severity, order seed integrity, session resolution across store outages, turn trimming, startup config validation, and tool cancellation. Unit-level only — no Redis or Azure AI dependency, so it runs on fork PRs
+- Health endpoints: `/health` is mapped in **all** environments across every service and returns `{"status":"healthy"}` as JSON; `/alive` remains Development-only. AgentHost's `/health` reports only checks tagged `ready` — the Redis check is deliberately excluded, because the service is designed to keep serving when the store is unreachable, and failing readiness for it would remove the pod from rotation exactly when it can still answer
 
 **Planned (from roadmap):**
 - Workflow Orchestrator: MassTransit sagas, PostgreSQL state
@@ -79,8 +82,9 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 **Prerequisites:** .NET 10 SDK, Node.js 24+, Docker Desktop, Azure AI Foundry credentials.
 
 ```bash
-# Set credentials in appsettings.Development.json (AgentHost) or via env
-# AzureAI:Endpoint, AzureAI:ApiKey, AzureAI:DeploymentName
+# Store the API key in user secrets — appsettings.Development.json is tracked by Git
+# cd NexusOps.AgentHost && dotnet user-secrets set "AzureAI:ApiKey" "<your-api-key>"
+# Endpoint and DeploymentName may live in appsettings; the key must not
 
 dotnet run --project NexusOps.AppHost
 ```
@@ -129,19 +133,21 @@ This matches the pattern used by all existing projects (`NexusOps.AgentHost`, `N
 
 ## Configuration
 
-Azure AI credentials are configured via `AzureAI` section in appsettings:
+Azure AI settings bind from the `AzureAI` configuration section:
 - `AzureAI:Endpoint` — Cognitive Services endpoint URL
-- `AzureAI:ApiKey` — resolved in AgentHost via `AzureAI:ApiKey` or environment variable `AZURE_AI_FOUNDRY_API_KEY` (fallback)
+- `AzureAI:ApiKey` — **store in user secrets**, never in the tracked `appsettings.Development.json`. AgentHost carries a `UserSecretsId`; `dotnet user-secrets set "AzureAI:ApiKey" "<key>"`. Falls back to the `AZURE_AI_FOUNDRY_API_KEY` environment variable for CI and containers
 - `AzureAI:DeploymentName` — model deployment name
 - `AzureAI:AgentName` / `AzureAI:AgentInstructions` — optional overrides (defaults in `AzureAIOptions.cs`)
 
 Session management is configured via `Session` section in appsettings (class: `ConversationSessionOptions`):
-- `Session:MaxTurns` — maximum turns retained per session (default: `20`; must be ≥ 1, app fails at startup if ≤ 0)
+- `Session:MaxTurns` — maximum turns retained per session (default: `20`)
 - `Session:SlidingExpirationMinutes` — inactivity window before Redis evicts the session (default: `30`)
+
+Both are validated at startup via `ValidateOnStart`; a value ≤ 0 for either key prevents the application from starting, naming the offending key.
 
 ## CI/CD
 
-Four GitHub Actions workflows under `.github/workflows/`:
+Three GitHub Actions workflows under `.github/workflows/`:
 
 | File | Trigger | Purpose |
 |---|---|---|
@@ -153,7 +159,9 @@ Dependabot config at `.github/dependabot.yml` keeps NuGet, npm, and GitHub Actio
 
 **Solution filter — `NexusOps.deployable.slnf`**
 
-`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to six projects: `NexusOps.AgentHost`, `NexusOps.Contracts`, `NexusOps.InventoryService`, `NexusOps.OrderService`, `NexusOps.ProductService`, and `NexusOps.Server`. `NexusOps.AppHost` is excluded because it is a dev-only Aspire orchestrator. Local development is unaffected; open `NexusOps.sln` as normal.
+`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to the eight .NET projects, excluding only `frontend.esproj`.
+
+`NexusOps.AppHost` was previously excluded on the grounds that it is a dev-only Aspire orchestrator. That rationale was wrong in practice: Dependabot is rooted at `/` and does update the AppHost's version-sensitive Aspire packages (commit `244b47d` bumped Aspire 13.3.5 → 13.4.3), so excluding it meant those updates landed in a project no workflow ever compiled. The AppHost has no project reference to `frontend.esproj` — it reaches the frontend through `AddViteApp` with a path — so including it does not couple npm into the dotnet job. Local development is unaffected; open `NexusOps.sln` as normal.
 
 **Azure AI credentials in CI**
 

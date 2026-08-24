@@ -1,10 +1,8 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
 using NexusOps.AgentHost.Configuration;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace NexusOps.AgentHost.Services;
 
@@ -27,26 +25,8 @@ public sealed class AgentService : IAgentService
     {
         var options = _sessionOptions.Value;
         var now = DateTimeOffset.UtcNow;
-        bool callerSuppliedId = !string.IsNullOrWhiteSpace(sessionId);
 
-        if (!callerSuppliedId)
-        {
-            sessionId = Guid.NewGuid().ToString();
-            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", GetSessionLogToken(sessionId), now);
-        }
-
-        var history = await _store.GetHistoryAsync(sessionId!, cancellationToken);
-
-        // FR-007: empty history for a caller-supplied ID means expired/unknown — mint new
-        if (callerSuppliedId && history.Count == 0)
-        {
-            sessionId = Guid.NewGuid().ToString();
-            _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", GetSessionLogToken(sessionId), now);
-        }
-        else if (!callerSuppliedId || history.Count > 0)
-        {
-            _logger.LogDebug("session.history_loaded {SessionIdPrefix} {TurnCount} {Timestamp}", GetSessionLogToken(sessionId), history.Count, now);
-        }
+        var (activeSessionId, history) = await ResolveSessionAsync(sessionId, now, cancellationToken);
 
         var messages = new List<ChatMessage>(history.Count + 1);
         foreach (var turn in history)
@@ -64,31 +44,97 @@ public sealed class AgentService : IAgentService
             var agentResponse = await _agent.RunAsync(messages, session: null, options: null, cancellationToken);
             responseText = agentResponse.ToString();
         }
-        catch
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            // FR-005: persist the user turn even when the agent fails; do not persist a failed assistant turn
-            await _store.AppendTurnsAsync(sessionId!, [userTurn], options, cancellationToken);
+            // The caller hung up, or the host is shutting down. Neither is an agent failure, and
+            // reporting it as one would inflate failure metrics and return a 500 to nobody.
             throw;
+        }
+        catch (Exception ex)
+        {
+            // 002 FR-005: persist the user turn even when the agent fails; do not persist a failed
+            // assistant turn. The session ID travels with the exception so the caller receives the
+            // identifier that turn was written under — otherwise it is unreachable until its TTL.
+            await PersistAsync(activeSessionId, [userTurn], options);
+            throw new AgentInvocationException(activeSessionId, ex);
         }
 
         var assistantTurn = new ConversationTurn("assistant", responseText, DateTimeOffset.UtcNow);
-        await _store.AppendTurnsAsync(sessionId!, [userTurn, assistantTurn], options, cancellationToken);
+        await PersistAsync(activeSessionId, [userTurn, assistantTurn], options);
 
         var savedCount = Math.Min(history.Count + 2, options.MaxTurns);
-        _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", GetSessionLogToken(sessionId), savedCount, DateTimeOffset.UtcNow);
+        _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", SessionLogToken.For(activeSessionId), savedCount, DateTimeOffset.UtcNow);
 
-        return (responseText, sessionId!);
+        return (responseText, activeSessionId);
     }
 
-    private static string GetSessionLogToken(string? sessionId)
+    /// <summary>
+    /// Determines which session this request belongs to and what history it starts from.
+    /// </summary>
+    private async Task<(string SessionId, IReadOnlyList<ConversationTurn> History)> ResolveSessionAsync(
+        string? suppliedSessionId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(sessionId))
+        // No identifier supplied: mint one. Reading the store first would be a guaranteed miss
+        // against a key created microseconds ago, and would log a history load that never happened.
+        //
+        // A malformed identifier is treated the same way (002 FR-007, and the clarification at
+        // spec.md:78). This also keeps caller-controlled text out of the Redis key space and out of
+        // anything echoed back — the identifier is returned on the store-unavailable path and in the
+        // 500 body, so it must be a value this service minted, not arbitrary input.
+        if (!IsWellFormed(suppliedSessionId))
         {
-            return "null";
+            return (MintSession(now), []);
         }
 
-        var bytes = Encoding.UTF8.GetBytes(sessionId);
-        var hash = SHA256.HashData(bytes);
-        return Convert.ToHexString(hash)[..8];
+        var result = await _store.GetHistoryAsync(suppliedSessionId, cancellationToken);
+
+        switch (result.Outcome)
+        {
+            case HistoryOutcome.Found:
+                _logger.LogDebug("session.history_loaded {SessionIdPrefix} {TurnCount} {Timestamp}", SessionLogToken.For(suppliedSessionId), result.Turns.Count, now);
+                return (suppliedSessionId, result.Turns);
+
+            case HistoryOutcome.Missing:
+                // 002 FR-007: an expired, unknown or malformed ID starts a fresh session rather
+                // than surfacing an error.
+                return (MintSession(now), []);
+
+            case HistoryOutcome.Unavailable:
+            default:
+                // 003 FR-009: the store is unreachable, so whether this session exists is unknown.
+                // Keep the caller's identifier and run statelessly; the conversation resumes intact
+                // once the store recovers. The store has already logged session.degraded.
+                return (suppliedSessionId, []);
+        }
+    }
+
+    /// <summary>
+    /// A session identifier is well formed only if this service could have minted it: a UUID in the
+    /// canonical hyphenated form, matching the opaque-token format the chat contract publishes.
+    /// </summary>
+    private static bool IsWellFormed([NotNullWhen(true)] string? sessionId) =>
+        !string.IsNullOrWhiteSpace(sessionId) && Guid.TryParseExact(sessionId, "D", out _);
+
+    /// <summary>
+    /// Writes turns to the store using a token that is deliberately NOT the request's.
+    /// </summary>
+    /// <remarks>
+    /// The endpoint passes <c>HttpContext.RequestAborted</c>. Handing that to the store means a
+    /// client disconnect cancels the write — on the failure path that silently defeats 002 FR-005,
+    /// whose entire purpose is to survive the failure, and the swallowed cancellation surfaces as a
+    /// <c>session.degraded</c> warning blaming Redis for something Redis did not do. On the success
+    /// path it discards both turns after the model call has already been paid for. Persistence is
+    /// cheap, bounded, and worth completing after the caller has gone.
+    /// </remarks>
+    private Task PersistAsync(string sessionId, IReadOnlyList<ConversationTurn> turns, ConversationSessionOptions options) =>
+        _store.AppendTurnsAsync(sessionId, turns, options, CancellationToken.None);
+
+    private string MintSession(DateTimeOffset now)
+    {
+        var sessionId = Guid.NewGuid().ToString();
+        _logger.LogInformation("session.created {SessionIdPrefix} {Timestamp}", SessionLogToken.For(sessionId), now);
+        return sessionId;
     }
 }

@@ -10,20 +10,24 @@ public sealed class RedisConversationStore(IDistributedCache cache, ILogger<Redi
 
     private static string Key(string sessionId) => $"nexusops:session:{sessionId}";
 
-    public async Task<IReadOnlyList<ConversationTurn>> GetHistoryAsync(string sessionId, CancellationToken cancellationToken = default)
+    public async Task<HistoryResult> GetHistoryAsync(string sessionId, CancellationToken cancellationToken = default)
     {
         try
         {
             var json = await cache.GetStringAsync(Key(sessionId), cancellationToken);
-            if (json is null)
-                return [];
 
-            return JsonSerializer.Deserialize<List<ConversationTurn>>(json, JsonOptions) ?? [];
+            // Reached the store and it holds nothing: the session expired or never existed.
+            if (json is null)
+                return HistoryResult.Missing();
+
+            return HistoryResult.Found(JsonSerializer.Deserialize<List<ConversationTurn>>(json, JsonOptions) ?? []);
         }
         catch (Exception ex)
         {
+            // Could not read the store. Whether the session exists is unknown, so the caller must
+            // not treat this as an absent session — see HistoryResult and 003 FR-009.
             LogDegraded(sessionId, ex, historyLoadedBeforeFailure: false, turnCountLoaded: 0);
-            return [];
+            return HistoryResult.Unavailable();
         }
     }
 
@@ -66,20 +70,16 @@ public sealed class RedisConversationStore(IDistributedCache cache, ILogger<Redi
         }
     }
 
-    private static string SanitiseSessionIdPrefix(string sessionId, int maxLength = 8)
-    {
-        if (string.IsNullOrEmpty(sessionId))
-            return string.Empty;
-
-        var prefix = sessionId[..Math.Min(maxLength, sessionId.Length)];
-        return prefix.Replace("\r", string.Empty).Replace("\n", string.Empty);
-    }
-
     private void LogDegraded(string sessionId, Exception ex, bool historyLoadedBeforeFailure, int turnCountLoaded)
     {
         var errorCategory = ex switch
         {
             JsonException => "serialisation",
+            // A non-positive SlidingExpiration makes DistributedCacheEntryOptions throw on every
+            // write. That is a configuration fault, and reporting it as a connection failure sent
+            // operators looking for a Redis outage that was not happening. Startup validation now
+            // prevents it, but the category stays so the misdiagnosis cannot recur.
+            ArgumentOutOfRangeException => "configuration",
             OperationCanceledException => "timeout",
             _ when ex.GetType().Name.Contains("Timeout", StringComparison.OrdinalIgnoreCase) => "timeout",
             _ => "connection"
@@ -87,7 +87,7 @@ public sealed class RedisConversationStore(IDistributedCache cache, ILogger<Redi
 
         logger.LogWarning(
             "session.degraded {SessionIdPrefix} {ErrorCategory} {HistoryLoadedBeforeFailure} {TurnCountLoaded} {Timestamp}",
-            SanitiseSessionIdPrefix(sessionId),
+            SessionLogToken.For(sessionId),
             errorCategory,
             historyLoadedBeforeFailure,
             turnCountLoaded,

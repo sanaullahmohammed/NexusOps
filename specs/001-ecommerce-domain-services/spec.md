@@ -4,7 +4,7 @@
 
 **Created**: 2026-05-28
 
-**Status**: Draft
+**Status**: Implemented
 
 **Input**: User description: "E-Commerce Domain Services with Direct-Path Tool Integration: Create NexusOps.Contracts (curated tool definitions), implement Order/Inventory/Product ASP.NET Core Minimal API services with in-memory seed data, wire tools into AgentHost, and register all services in AppHost with service discovery and health checks. This is the first end-to-end slice enabling the agent to answer read queries like 'show me delayed orders' via the Direct path."
 
