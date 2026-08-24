@@ -32,7 +32,8 @@ Content-Type: application/json
 **Session ID lookup behaviour:**
 - Present (non-empty) + active → conversation history loaded; session expiry timer reset
 - Present (non-empty) + expired/unknown/malformed → treated as new session; a **new** ID is minted and returned (the returned `sessionId` will differ from the supplied one)
-- Absent, null, or empty string → new session minted
+- Present (non-empty) + **store unreachable** → the supplied ID is **preserved** and echoed back unchanged; the turn is processed without history. A failed lookup is not evidence that the session is absent, so no replacement is minted (FR-013)
+- Absent, null, or empty string → new session minted, **without querying the store** — the ID was just generated in-process, so a read would be a guaranteed miss (FR-014)
 
 ---
 
@@ -52,17 +53,41 @@ Content-Type: application/json
 | `response` | Yes | The agent's natural-language reply |
 | `sessionId` | Yes | The active session ID — either the caller-supplied one or newly minted |
 
+### 400 Bad Request (ValidationProblemDetails)
+
+Returned when `prompt` is absent, null, empty, or entirely whitespace. Rejected before a session is
+minted and before the model is invoked, so a malformed request incurs no model cost and leaves
+nothing in the conversation store.
+
+```json
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.1",
+  "title": "One or more validation errors occurred.",
+  "status": 400,
+  "errors": {
+    "prompt": ["A prompt is required and must not be empty or whitespace."]
+  }
+}
+```
+
 ### 500 Internal Server Error (ProblemDetails)
 
 ```json
 {
   "type": "https://tools.ietf.org/html/rfc9110#section-15.6.1",
-  "title": "An error occurred while processing your request.",
-  "status": 500
+  "title": "The agent could not complete the request.",
+  "detail": "The prompt was recorded against the session below and can be retried.",
+  "status": 500,
+  "sessionId": "<string — the active session>"
 }
 ```
 
 Returned only when the agent itself fails. Store unavailability does NOT produce a 500 — the request proceeds statelessly.
+
+The `sessionId` extension is **required** (FR-015). FR-005 persists the user's turn even when the
+agent fails; if the session was minted during that same request, a 500 without this field left the
+caller unable to name the session the turn was written under, so it was unreachable until its TTL
+expired. Callers may retry the prompt against this ID.
 
 ---
 
@@ -81,9 +106,17 @@ The following structured log events are emitted by the service. Log level and re
 | `session.created` | **Info** | New session ID minted | `sessionId`, `timestamp` |
 | `session.history_loaded` | **Debug** | History retrieved from store | `sessionId`, `turnCount`, `timestamp` |
 | `session.history_saved` | **Debug** | History written to store | `sessionId`, `turnCount`, `timestamp` |
-| `session.degraded` | **Warning** | Store unavailable; stateless fallback | `sessionId`, `errorCategory` (`connection` \| `timeout` \| `serialisation`), `historyLoadedBeforeFailure` (bool), `turnCountLoaded` (int), `timestamp` |
+| `session.degraded` | **Warning** | Store unavailable; stateless fallback | `sessionId`, `errorCategory` (`connection` \| `timeout` \| `serialisation` \| `configuration`), `historyLoadedBeforeFailure` (bool), `turnCountLoaded` (int), `timestamp` |
 
-> **Log safety**: `sessionId` values in log output MUST be truncated to the first 8 characters for correlation. Full session IDs MUST NOT appear in log files.
+> **Log safety**: log output MUST identify a session by a short, non-reversible token derived from
+> the session ID — the first 8 hexadecimal characters of its SHA-256 digest. Every emitting component
+> MUST use the same derivation. Full session IDs MUST NOT appear in log files, and neither may any
+> recoverable portion of one.
+>
+> *Amended by feature 003 (FR-012).* This previously specified truncation to the first 8 characters of
+> the raw ID. Two problems: `AgentService` hashed while `RedisConversationStore` truncated, so a
+> `session.created` event could never be joined to the `session.degraded` that followed it; and the
+> truncated form exposed a third of a real UUID, defeating the intent of the rule.
 
 ---
 

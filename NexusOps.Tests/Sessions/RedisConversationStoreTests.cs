@@ -30,7 +30,7 @@ public class RedisConversationStoreTests
     {
         var store = CreateStore(CreateCache());
 
-        var history = await store.GetHistoryAsync("does-not-exist");
+        var history = (await store.GetHistoryAsync("does-not-exist")).Turns;
 
         Assert.Empty(history);
     }
@@ -41,7 +41,7 @@ public class RedisConversationStoreTests
         var store = CreateStore(CreateCache());
 
         await store.AppendTurnsAsync("s1", [Turn("first"), Turn("second", "assistant")], Options_());
-        var history = await store.GetHistoryAsync("s1");
+        var history = (await store.GetHistoryAsync("s1")).Turns;
 
         Assert.Collection(history,
             t => { Assert.Equal("user", t.Role); Assert.Equal("first", t.Content); },
@@ -59,7 +59,7 @@ public class RedisConversationStoreTests
             await store.AppendTurnsAsync("s1", [Turn($"turn-{i}")], options);
         }
 
-        var history = await store.GetHistoryAsync("s1");
+        var history = (await store.GetHistoryAsync("s1")).Turns;
 
         Assert.Equal(4, history.Count);
         Assert.Equal(["turn-3", "turn-4", "turn-5", "turn-6"], history.Select(t => t.Content));
@@ -76,7 +76,7 @@ public class RedisConversationStoreTests
             [Turn("a"), Turn("b"), Turn("c"), Turn("d"), Turn("e")],
             options);
 
-        var history = await store.GetHistoryAsync("s1");
+        var history = (await store.GetHistoryAsync("s1")).Turns;
 
         Assert.Equal(3, history.Count);
         Assert.Equal(["c", "d", "e"], history.Select(t => t.Content));
@@ -90,7 +90,7 @@ public class RedisConversationStoreTests
 
         await store.AppendTurnsAsync("s1", [Turn("a"), Turn("b"), Turn("c")], options);
 
-        var history = await store.GetHistoryAsync("s1");
+        var history = (await store.GetHistoryAsync("s1")).Turns;
 
         Assert.Equal(["a", "b", "c"], history.Select(t => t.Content));
     }
@@ -103,8 +103,8 @@ public class RedisConversationStoreTests
         await store.AppendTurnsAsync("s1", [Turn("belongs to s1")], Options_());
         await store.AppendTurnsAsync("s2", [Turn("belongs to s2")], Options_());
 
-        Assert.Equal("belongs to s1", (await store.GetHistoryAsync("s1")).Single().Content);
-        Assert.Equal("belongs to s2", (await store.GetHistoryAsync("s2")).Single().Content);
+        Assert.Equal("belongs to s1", (await store.GetHistoryAsync("s1")).Turns.Single().Content);
+        Assert.Equal("belongs to s2", (await store.GetHistoryAsync("s2")).Turns.Single().Content);
     }
 
     [Fact]
@@ -115,7 +115,7 @@ public class RedisConversationStoreTests
 
         await store.DeleteSessionAsync("s1");
 
-        Assert.Empty(await store.GetHistoryAsync("s1"));
+        Assert.Empty((await store.GetHistoryAsync("s1")).Turns);
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public class RedisConversationStoreTests
     {
         var store = CreateStore(new ThrowingCache());
 
-        var history = await store.GetHistoryAsync("s1");
+        var history = (await store.GetHistoryAsync("s1")).Turns;
 
         Assert.NotNull(history);
     }
@@ -134,6 +134,54 @@ public class RedisConversationStoreTests
         var store = CreateStore(new ThrowingCache());
 
         await store.AppendTurnsAsync("s1", [Turn("a")], Options_());
+    }
+
+    // ---- 003 FR-009: a miss and an outage must be distinguishable ----
+
+    [Fact]
+    public async Task GetHistory_ForUnknownSession_ReportsMissing()
+    {
+        var store = CreateStore(CreateCache());
+
+        var result = await store.GetHistoryAsync("does-not-exist");
+
+        Assert.Equal(HistoryOutcome.Missing, result.Outcome);
+    }
+
+    [Fact]
+    public async Task GetHistory_ForKnownSession_ReportsFound()
+    {
+        var store = CreateStore(CreateCache());
+        await store.AppendTurnsAsync("s1", [Turn("a")], Options_());
+
+        var result = await store.GetHistoryAsync("s1");
+
+        Assert.Equal(HistoryOutcome.Found, result.Outcome);
+    }
+
+    [Fact]
+    public async Task GetHistory_WhenStoreThrows_ReportsUnavailableRatherThanMissing()
+    {
+        var store = CreateStore(new ThrowingCache());
+
+        var result = await store.GetHistoryAsync("s1");
+
+        // The whole of finding 12: an unreachable store must not look like an absent session,
+        // or every request during an outage mints a new one.
+        Assert.Equal(HistoryOutcome.Unavailable, result.Outcome);
+        Assert.NotEqual(HistoryOutcome.Missing, result.Outcome);
+    }
+
+    [Fact]
+    public async Task GetHistory_ForAnEmptyButExistingSession_ReportsFoundNotMissing()
+    {
+        var store = CreateStore(CreateCache());
+        await store.AppendTurnsAsync("s1", [], Options_());
+
+        var result = await store.GetHistoryAsync("s1");
+
+        Assert.Equal(HistoryOutcome.Found, result.Outcome);
+        Assert.Empty(result.Turns);
     }
 
     /// <summary>An <see cref="IDistributedCache"/> that fails every operation, standing in for an outage.</summary>

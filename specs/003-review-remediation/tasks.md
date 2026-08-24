@@ -77,20 +77,27 @@
 
 **Purpose**: Make sessions survive a store outage and make the endpoint honour its own contract.
 
-- [ ] T024 [US2] Guard the prompt in `NexusOps.AgentHost/Endpoints/ChatEndpoints.cs` — reject null, empty or whitespace with `Results.ValidationProblem` before minting a session or calling the agent; add `.ProducesValidationProblem()` (F5)
-- [ ] T025 [US2] Add validation attributes to `ConversationSessionOptions` and replace the ad-hoc `MaxTurns` guard in `Program.cs` with a `ValidateOnStart` validator covering both `MaxTurns` and `SlidingExpirationMinutes` (F4)
-- [ ] T026 [US2] Add an `ArgumentOutOfRangeException => "configuration"` arm to the error-category switch in `RedisConversationStore.LogDegraded` so a misconfiguration can never be reported as a connection fault (F4)
-- [ ] T027 [US2] Introduce `HistoryResult` (turns + `Found`/`Missing`/`Unavailable`) and widen `IConversationStore.GetHistoryAsync` in `NexusOps.AgentHost/Services/IConversationStore.cs` (F12)
-- [ ] T028 [US2] Update `RedisConversationStore.GetHistoryAsync` to return `Missing` on a cache miss and `Unavailable` on a caught exception (F12)
-- [ ] T029 [US2] Update `AgentService.SendAsync` — mint on `Missing`, preserve the caller's ID on `Unavailable`, and skip the store read entirely when no ID was supplied (F12, F13)
-- [ ] T030 [US2] Emit `session.history_loaded` only when history was actually loaded (F13)
-- [ ] T031 [US2] Extract the hashed session-token helper to one shared internal static used by both `AgentService` and `RedisConversationStore`, retaining the CRLF-stripping guard (F9)
-- [ ] T032 [US2] Return the active session ID on the agent-failure path via a ProblemDetails `sessionId` extension, so the turn persisted under 002 FR-005 is reachable (F14)
-- [ ] T033 [P] [US2] Tests: failing store preserves the caller's ID across successive requests; expired session still mints; blank prompt returns 400 with no store write; non-positive options prevent startup; trimming at the `MaxTurns` boundary; both loggers emit the same token
-- [ ] T034 [P] [US2] Amend `specs/002-session-management/spec.md` — FR-007 store-unavailable clause, FR-008 sliding-expiration validation, FR-010 identifier preservation, FR-012 token consistency
-- [ ] T035 [P] [US2] Amend `specs/002-session-management/contracts/chat-api.md` — document the 400 response and the `sessionId` extension on the 500
+- [x] T024 [US2] Guard the prompt in `NexusOps.AgentHost/Endpoints/ChatEndpoints.cs` — reject null, empty or whitespace with `Results.ValidationProblem` before minting a session or calling the agent; add `.ProducesValidationProblem()` (F5)
+- [x] T025 [US2] Add validation attributes to `ConversationSessionOptions` and replace the ad-hoc `MaxTurns` guard in `Program.cs` with a `ValidateOnStart` validator covering both `MaxTurns` and `SlidingExpirationMinutes` (F4)
+- [x] T026 [US2] Add an `ArgumentOutOfRangeException => "configuration"` arm to the error-category switch in `RedisConversationStore.LogDegraded` so a misconfiguration can never be reported as a connection fault (F4)
+- [x] T027 [US2] Introduce `HistoryResult` (turns + `Found`/`Missing`/`Unavailable`) and widen `IConversationStore.GetHistoryAsync` in `NexusOps.AgentHost/Services/IConversationStore.cs` (F12)
+- [x] T028 [US2] Update `RedisConversationStore.GetHistoryAsync` to return `Missing` on a cache miss and `Unavailable` on a caught exception (F12)
+- [x] T029 [US2] Update `AgentService.SendAsync` — mint on `Missing`, preserve the caller's ID on `Unavailable`, and skip the store read entirely when no ID was supplied (F12, F13)
+- [x] T030 [US2] Emit `session.history_loaded` only when history was actually loaded (F13)
+- [x] T031 [US2] Extract the hashed session-token helper to one shared internal static used by both `AgentService` and `RedisConversationStore`, retaining the CRLF-stripping guard (F9)
+- [x] T032 [US2] Return the active session ID on the agent-failure path via a ProblemDetails `sessionId` extension, so the turn persisted under 002 FR-005 is reachable (F14)
+- [x] T033 [P] [US2] Tests: failing store preserves the caller's ID across successive requests; expired session still mints; blank prompt returns 400 with no store write; non-positive options prevent startup; trimming at the `MaxTurns` boundary; both loggers emit the same token
+- [x] T034 [P] [US2] Amend `specs/002-session-management/spec.md` — FR-007 store-unavailable clause, FR-008 sliding-expiration validation, FR-010 identifier preservation, FR-012 token consistency
+- [x] T035 [P] [US2] Amend `specs/002-session-management/contracts/chat-api.md` — document the 400 response and the `sessionId` extension on the 500
 
-**Checkpoint**: All Phase 3 tests pass; a stubbed store outage no longer rotates session identifiers.
+**Checkpoint**: ✅ 77 tests pass (34 added this phase). Verified against the running Agent Host with Redis deliberately absent:
+- Blank, whitespace and null prompts → HTTP 400 ValidationProblemDetails, no model call, no store write.
+- `Session:SlidingExpirationMinutes=0` → the host refuses to start, naming the key.
+- Agent failure on a minted session → HTTP 500 carrying `"sessionId"`.
+- Caller-supplied ID during the outage → echoed back unchanged (`11111111-…` in, `11111111-…` out).
+- Logs show `session.created 935BAC9D` and `session.degraded 935BAC9D` sharing one token — joinable for the first time — and zero `session.history_loaded` events.
+
+**Note**: `contracts/chat-api.md` had *mandated* the raw 8-character truncation that caused finding 9. The line was amended rather than the fix reverted: the truncated form exposed a third of a real UUID while claiming to protect it.
 
 ---
 
