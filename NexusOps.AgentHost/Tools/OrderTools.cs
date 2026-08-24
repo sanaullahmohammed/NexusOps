@@ -17,6 +17,14 @@ public sealed class OrderTools(IHttpClientFactory httpClientFactory, ILogger<Ord
             var result = await client.GetFromJsonAsync<OrderAnomaly[]>(url);
             return ToolResult<OrderAnomaly[]>.Ok(result ?? []);
         }
+        catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            // A rejected argument is the agent's to correct, not an outage. Tell it what it may pass
+            // so the next tool call can succeed, and log at Warning — this is not an incident.
+            logger.LogWarning(ex, "Rejected anomaly status filter {Status}", status);
+            return ToolResult<OrderAnomaly[]>.Fail(
+                $"'{status}' is not a valid anomaly status. Valid values are: delayed, missing, payment-failed. Omit the filter to return every anomaly.");
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Failed to retrieve order anomalies");

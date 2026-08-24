@@ -34,6 +34,7 @@ public static class SeedDataConstants
     public const string Ord0008 = "ORD-0008";
     public const string Ord0009 = "ORD-0009";
     public const string Ord0010 = "ORD-0010";
+    public const string Ord0011 = "ORD-0011";
 
     // Product IDs
     public const string Prd0001 = "PRD-0001";

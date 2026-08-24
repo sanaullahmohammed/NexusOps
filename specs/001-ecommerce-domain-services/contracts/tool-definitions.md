@@ -17,9 +17,25 @@ Descriptors (name + description strings) are `ToolNames` constants in `NexusOps.
 |-----------|--------|----------|----------------------------------------------------------|
 | status    | string | No       | Filter by anomaly type: `delayed`, `missing`, `payment-failed`. Omit for all anomalies. |
 
-**Returns**: `ToolResult<OrderAnomaly[]>`
+**Returns**: `ToolResult<OrderAnomaly[]>`. Each result carries the order's customer, value,
+expected delivery and line items, so cross-service questions ("are any delayed orders for
+out-of-stock products?") can be answered by joining this result against `get_inventory_alerts`
+on SKU, with no follow-up call per order.
 
-**Failure return**: `ToolResult<OrderAnomaly[]>.Fail("Order service is temporarily unavailable.")`
+**Failure returns**:
+
+| Condition | Result |
+|---|---|
+| Unrecognised `status` value (HTTP 400) | `Fail("'<value>' is not a valid anomaly status. Valid values are: delayed, missing, payment-failed. Omit the filter to return every anomaly.")` |
+| Transport failure, timeout, 5xx | `Fail("Order service is temporarily unavailable.")` |
+
+The two are deliberately distinct. A rejected argument is the agent's to correct, so the message
+names the accepted values and the next tool call can succeed; an outage is not correctable by
+retrying with different arguments. Client errors are logged at `Warning`, not `Error`.
+
+> **Amended by feature 003 (FR-002, FR-006).** Previously every failure — including a 400 — was
+> reported as "Order service is temporarily unavailable", leaving the agent no signal that it had
+> passed a bad argument.
 
 ---
 

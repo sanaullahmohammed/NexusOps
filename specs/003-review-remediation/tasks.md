@@ -53,21 +53,23 @@
 
 **Purpose**: Make an order's anomaly classification a property of the order.
 
-- [ ] T011 [US1] Add `AnomalyReason` enum (`Delayed`, `Missing`, `PaymentFailed`) and nullable `Order.AnomalyReason` property in `NexusOps.OrderService/Models/Order.cs`; leave `OrderStatus` unchanged (F3)
-- [ ] T012 [US1] Add `SeedDataConstants.Ord0011` in `NexusOps.Contracts/SeedDataConstants.cs` (F3)
-- [ ] T013 [US1] In `NexusOps.OrderService/Data/OrderStore.cs`: set `AnomalyReason` on ORD-0001, ORD-0002 (`Delayed`) and ORD-0009; add ORD-0011 covering the remaining reason (F3)
-- [ ] T014 [US1] Convert seed `ExpectedDelivery`, `ActualDelivery` and `CreatedAt` to offsets from the current date so derived values stop drifting (F20)
-- [ ] T015 [US1] Register `TimeProvider.System` in `NexusOps.OrderService/Program.cs` (F20)
-- [ ] T016 [US1] Widen `NexusOps.Contracts/Dtos/OrderAnomaly.cs` to the eight fields the order service contract already publishes, reusing the existing `OrderLineItem` record (F1, F2)
-- [ ] T017 [US1] Rewrite the `/orders/anomalies` handler in `NexusOps.OrderService/Endpoints/OrderEndpoints.cs` — select on `AnomalyReason`, derive `anomalyType` from the order, populate the full payload, and resolve today's date via injected `TimeProvider` (F1, F2, F3, F20)
-- [ ] T018 [US1] Implement the severity rule — `Missing` and `PaymentFailed` always high; `Delayed` high past seven days overdue, medium below (F3)
-- [ ] T019 [US1] Add a `BadRequest` catch clause to `OrderTools.InvestigateOrderAnomalyAsync` returning a correctable message naming the valid filter values; log 4xx at Warning rather than Error (F11)
-- [ ] T020 [P] [US1] Tests: three filters return disjoint non-empty sets; `anomalyType` invariant across filters; full payload present; `daysOverdue` deterministic under a faked `TimeProvider`; severity boundary at exactly seven days
-- [ ] T021 [P] [US1] Amend `specs/001-ecommerce-domain-services/data-model.md` — `AnomalyReason`, relative seed dates, eleven orders
-- [ ] T022 [P] [US1] Amend `specs/001-ecommerce-domain-services/contracts/order-service-api.md` — anomaly semantics and severity rule
-- [ ] T023 [P] [US1] Amend `specs/001-ecommerce-domain-services/contracts/tool-definitions.md` — 400 handling on the anomaly tool
+- [x] T011 [US1] Add `AnomalyReason` enum (`Delayed`, `Missing`, `PaymentFailed`) and nullable `Order.AnomalyReason` property in `NexusOps.OrderService/Models/Order.cs`; leave `OrderStatus` unchanged (F3)
+- [x] T012 [US1] Add `SeedDataConstants.Ord0011` in `NexusOps.Contracts/SeedDataConstants.cs` (F3)
+- [x] T013 [US1] In `NexusOps.OrderService/Data/OrderStore.cs`: set `AnomalyReason` on ORD-0001, ORD-0002 (`Delayed`) and ORD-0009; add ORD-0011 covering the remaining reason (F3)
+- [x] T014 [US1] Convert seed `ExpectedDelivery`, `ActualDelivery` and `CreatedAt` to offsets from the current date so derived values stop drifting (F20)
+- [x] T015 [US1] Register `TimeProvider.System` in `NexusOps.OrderService/Program.cs` (F20)
+- [x] T016 [US1] Widen `NexusOps.Contracts/Dtos/OrderAnomaly.cs` to the eight fields the order service contract already publishes, reusing the existing `OrderLineItem` record (F1, F2)
+- [x] T017 [US1] Rewrite the `/orders/anomalies` handler in `NexusOps.OrderService/Endpoints/OrderEndpoints.cs` — select on `AnomalyReason`, derive `anomalyType` from the order, populate the full payload, and resolve today's date via injected `TimeProvider` (F1, F2, F3, F20)
+- [x] T018 [US1] Implement the severity rule — `Missing` and `PaymentFailed` always high; `Delayed` high past seven days overdue, medium below (F3)
+- [x] T019 [US1] Add a `BadRequest` catch clause to `OrderTools.InvestigateOrderAnomalyAsync` returning a correctable message naming the valid filter values; log 4xx at Warning rather than Error (F11)
+- [x] T020 [P] [US1] Tests: three filters return disjoint non-empty sets; `anomalyType` invariant across filters; full payload present; `daysOverdue` deterministic under a faked `TimeProvider`; severity boundary at exactly seven days
+- [x] T021 [P] [US1] Amend `specs/001-ecommerce-domain-services/data-model.md` — `AnomalyReason`, relative seed dates, eleven orders
+- [x] T022 [P] [US1] Amend `specs/001-ecommerce-domain-services/contracts/order-service-api.md` — anomaly semantics and severity rule
+- [x] T023 [P] [US1] Amend `specs/001-ecommerce-domain-services/contracts/tool-definitions.md` — 400 handling on the anomaly tool
 
-**Checkpoint**: All Phase 2 tests pass; `?status=missing` and `?status=payment-failed` return different orders.
+**Checkpoint**: ✅ 43 tests pass (29 added this phase). Verified against the running service: `?status=delayed` → ORD-0001, ORD-0002; `?status=missing` → ORD-0011; `?status=payment-failed` → ORD-0009 — three disjoint sets, each order keeping one identity. `?status=bogus` → HTTP 400 naming the valid values.
+
+**Note**: the anomaly classification and projection rules were extracted to `NexusOps.OrderService/Anomalies/AnomalySelector.cs` so they can be tested directly rather than through an HTTP host. `OrderStore` became instance-based to take `TimeProvider`; the Phase 1 tests that referenced it statically failed the build and were updated, which is the first time the suite caught a regression.
 
 ---
 
