@@ -5,7 +5,9 @@ namespace NexusOps.AgentHost.Tools;
 
 public sealed class OrderTools(IHttpClientFactory httpClientFactory, ILogger<OrderTools> logger)
 {
-    public async Task<ToolResult<OrderAnomaly[]>> InvestigateOrderAnomalyAsync(string? status = null)
+    public async Task<ToolResult<OrderAnomaly[]>> InvestigateOrderAnomalyAsync(
+        string? status = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -14,8 +16,14 @@ public sealed class OrderTools(IHttpClientFactory httpClientFactory, ILogger<Ord
                 ? "/orders/anomalies"
                 : $"/orders/anomalies?status={Uri.EscapeDataString(status)}";
 
-            var result = await client.GetFromJsonAsync<OrderAnomaly[]>(url);
+            var result = await client.GetFromJsonAsync<OrderAnomaly[]>(url, cancellationToken);
             return ToolResult<OrderAnomaly[]>.Ok(result ?? []);
+        }
+        catch (OperationCanceledException)
+        {
+            // The caller went away. Not a service fault — let it propagate rather than reporting
+            // an outage that never happened.
+            throw;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.BadRequest)
         {
@@ -32,17 +40,23 @@ public sealed class OrderTools(IHttpClientFactory httpClientFactory, ILogger<Ord
         }
     }
 
-    public async Task<ToolResult<OrderSummary>> GetOrderDetailsAsync(string orderId)
+    public async Task<ToolResult<OrderSummary>> GetOrderDetailsAsync(
+        string orderId,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var client = httpClientFactory.CreateClient("order-service");
-            var result = await client.GetFromJsonAsync<OrderSummary>($"/orders/{Uri.EscapeDataString(orderId)}");
+            var result = await client.GetFromJsonAsync<OrderSummary>($"/orders/{Uri.EscapeDataString(orderId)}", cancellationToken);
             if (result is null)
             {
                 return ToolResult<OrderSummary>.Fail($"Order {orderId} was not found.");
             }
             return ToolResult<OrderSummary>.Ok(result);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

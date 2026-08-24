@@ -105,18 +105,22 @@
 
 **Purpose**: Make deployed services observable and in-flight work cancellable.
 
-- [ ] T036 [US4] Register `/health` unconditionally in `NexusOps.OrderService/Extensions.cs`, keeping `/alive` Development-only and rewriting the security comment to state why the probe was kept (F7)
-- [ ] T037 [P] [US4] Same change in `NexusOps.InventoryService/Extensions.cs` (F7)
-- [ ] T038 [P] [US4] Same change in `NexusOps.ProductService/Extensions.cs` (F7)
-- [ ] T039 [P] [US4] Same change in `NexusOps.Server/Extensions.cs` (F7)
-- [ ] T040 [US4] Add a shared JSON health response writer emitting `{"status":"healthy"}` with the correct content type, applied at all four call sites (F17)
-- [ ] T041 [US4] Add a trailing `CancellationToken` to all six handlers in `Tools/{Order,Inventory,Product}Tools.cs` and forward it to each `GetFromJsonAsync` (F15)
-- [ ] T042 [US4] Add `catch (OperationCanceledException) { throw; }` ahead of each generic catch so cancellation is not relabelled as a service outage (F15)
-- [ ] T043 [P] [US4] Give the `/api` proxy target a localhost fallback in `frontend/vite.config.ts` and log the resolved target at config time (F16)
-- [ ] T044 [P] [US4] Tests: health payload shape; a cancelled token surfaces as cancellation rather than as a `ToolResult` failure
-- [ ] T045 [P] [US4] Amend the `/health` section of all three `specs/001-…/contracts/*-service-api.md` files (F13, F17)
+- [x] T036 [US4] Register `/health` unconditionally in `NexusOps.OrderService/Extensions.cs`, keeping `/alive` Development-only and rewriting the security comment to state why the probe was kept (F7)
+- [x] T037 [P] [US4] Same change in `NexusOps.InventoryService/Extensions.cs` (F7)
+- [x] T038 [P] [US4] Same change in `NexusOps.ProductService/Extensions.cs` (F7)
+- [x] T039 [P] [US4] Same change in `NexusOps.Server/Extensions.cs` (F7)
+- [x] T040 [US4] Add a shared JSON health response writer emitting `{"status":"healthy"}` with the correct content type, applied at all four call sites (F17)
+- [x] T041 [US4] Add a trailing `CancellationToken` to all six handlers in `Tools/{Order,Inventory,Product}Tools.cs` and forward it to each `GetFromJsonAsync` (F15)
+- [x] T042 [US4] Add `catch (OperationCanceledException) { throw; }` ahead of each generic catch so cancellation is not relabelled as a service outage (F15)
+- [x] T043 [P] [US4] Give the `/api` proxy target a localhost fallback in `frontend/vite.config.ts` and log the resolved target at config time (F16)
+- [x] T044 [P] [US4] Tests: health payload shape; a cancelled token surfaces as cancellation rather than as a `ToolResult` failure
+- [x] T045 [P] [US4] Amend the `/health` section of all three `specs/001-…/contracts/*-service-api.md` files (F13, F17)
 
-**Checkpoint**: All Phase 4 tests pass; `/health` returns JSON under a Production environment name.
+**Checkpoint**: ✅ 90 tests pass (13 added this phase), 0 build warnings. Verified against the Order service started with `ASPNETCORE_ENVIRONMENT=Production`: `/health` → HTTP 200, `Content-Type: application/json; charset=utf-8`, body `{"status":"healthy"}` — an exact contract match, where master returned 404. `/alive` → 404, correctly Development-only. Frontend typecheck and lint pass; `tsc -b` was confirmed to actually cover `vite.config.ts` by introducing a deliberate type error and observing it fail.
+
+**Notes**:
+- The JSON health writer is duplicated across five files (four services plus the Agent Host), matching the existing convention in which each service carries its own copy of `Extensions.cs`. A shared ServiceDefaults project would remove the duplication; CLAUDE.md records the deliberate choice not to have one, so that is left as a known issue rather than changed here.
+- `npm run build` cannot run on this checkout: `@rolldown/binding-linux-x64-gnu` is missing because `node_modules` was installed from Windows, and local Node is v20.17.0 against a `^20.19.0 || >=22.12.0` engine requirement. Confirmed pre-existing — it fails identically with the `vite.config.ts` change stashed. CI installs fresh on ubuntu with Node 24.
 
 ---
 

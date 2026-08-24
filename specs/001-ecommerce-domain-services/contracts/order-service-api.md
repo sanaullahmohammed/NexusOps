@@ -96,4 +96,24 @@ Returns full details for a single order.
 
 ## GET /health
 
+**Response 200** (all environments):
+
+```json
+{ "status": "healthy" }
+```
+
+`Content-Type: application/json; charset=utf-8`. The `status` value is the health report status
+lowercased — `healthy`, `degraded` or `unhealthy`.
+
+> **Amended by feature 003 (FR-013).** Two corrections. The endpoint was registered only when
+> `ASPNETCORE_ENVIRONMENT=Development`, while the Aspire AppHost probes this path and `WaitFor`s it
+> unconditionally — so any non-Development start could never reach a healthy state. And the default
+> health writer returned the bare string `Healthy` as `text/plain`, not the JSON body documented
+> here. Exposing readiness publicly carries the security implications the Aspire template warns
+> about; reachability is restricted at the ingress rather than by removing the endpoint.
+
+## GET /alive
+
+Liveness. Registered in **Development only** — nothing outside the Aspire dashboard consumes it.
+
 **Response 200**: `{ "status": "healthy" }`

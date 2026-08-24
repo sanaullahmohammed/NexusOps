@@ -22,8 +22,8 @@ public sealed class FakeAgent(Func<IEnumerable<ChatMessage>, string> respond) : 
 
     protected override Task<AgentResponse> RunCoreAsync(
         IEnumerable<ChatMessage> messages,
-        AgentSession session,
-        AgentRunOptions options,
+        AgentSession? session,
+        AgentRunOptions? options,
         CancellationToken cancellationToken)
     {
         LastMessages = messages.ToList();
@@ -33,18 +33,18 @@ public sealed class FakeAgent(Func<IEnumerable<ChatMessage>, string> respond) : 
     }
 
     protected override IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(
-        IEnumerable<ChatMessage> messages, AgentSession session, AgentRunOptions options, CancellationToken cancellationToken) =>
+        IEnumerable<ChatMessage> messages, AgentSession? session, AgentRunOptions? options, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
     protected override ValueTask<AgentSession> CreateSessionCoreAsync(CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
     protected override ValueTask<JsonElement> SerializeSessionCoreAsync(
-        AgentSession session, JsonSerializerOptions options, CancellationToken cancellationToken) =>
+        AgentSession session, JsonSerializerOptions? options, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 
     protected override ValueTask<AgentSession> DeserializeSessionCoreAsync(
-        JsonElement element, JsonSerializerOptions options, CancellationToken cancellationToken) =>
+        JsonElement element, JsonSerializerOptions? options, CancellationToken cancellationToken) =>
         throw new NotSupportedException();
 }
 
