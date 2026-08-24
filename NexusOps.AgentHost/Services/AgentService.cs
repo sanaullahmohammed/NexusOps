@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Options;
@@ -113,7 +114,7 @@ public sealed class AgentService : IAgentService
     /// A session identifier is well formed only if this service could have minted it: a UUID in the
     /// canonical hyphenated form, matching the opaque-token format the chat contract publishes.
     /// </summary>
-    private static bool IsWellFormed(string? sessionId) =>
+    private static bool IsWellFormed([NotNullWhen(true)] string? sessionId) =>
         !string.IsNullOrWhiteSpace(sessionId) && Guid.TryParseExact(sessionId, "D", out _);
 
     /// <summary>
