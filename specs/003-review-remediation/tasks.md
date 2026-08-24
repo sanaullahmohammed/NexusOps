@@ -36,14 +36,16 @@
 
 **⚠️ CRITICAL**: Phases 2–4 depend on this phase — they are specified to land with tests.
 
-- [ ] T005 [US3] Create `NexusOps.Tests/NexusOps.Tests.csproj` — xUnit, net10.0, project references to `NexusOps.AgentHost`, `NexusOps.OrderService` and `NexusOps.Contracts` (F10)
-- [ ] T006 [P] [US3] Create `NexusOps.Tests/.gitignore` with `bin/`, `obj/`, `out/`, `*.nupkg`, `*.lscache` per the CLAUDE.md project convention
-- [ ] T007 [US3] Register `NexusOps.Tests` in `NexusOps.sln`
-- [ ] T008 [US3] Add `NexusOps.Tests` and `NexusOps.AppHost` to `NexusOps.deployable.slnf` (F8, F10)
-- [ ] T009 [P] [US3] Add a placeholder assertion test so the suite is non-empty and the step is demonstrably non-vacuous
-- [ ] T010 [US3] Update the `NexusOps.deployable.slnf` paragraph in `CLAUDE.md` — record that the AppHost is now compiled, and that the exclusion rationale was what left it unverified (F8)
+- [x] T005 [US3] Create `NexusOps.Tests/NexusOps.Tests.csproj` — xUnit, net10.0, project references to `NexusOps.AgentHost`, `NexusOps.OrderService` and `NexusOps.Contracts` (F10)
+- [x] T006 [P] [US3] Create `NexusOps.Tests/.gitignore` with `bin/`, `obj/`, `out/`, `*.nupkg`, `*.lscache` per the CLAUDE.md project convention
+- [x] T007 [US3] Register `NexusOps.Tests` in `NexusOps.sln`
+- [x] T008 [US3] Add `NexusOps.Tests` and `NexusOps.AppHost` to `NexusOps.deployable.slnf` (F8, F10)
+- [x] T009 [P] [US3] Seed the suite with real coverage rather than a placeholder — 14 tests across order seed integrity and session trimming/degradation (002 FR-008, FR-010)
+- [x] T010 [US3] Update the `NexusOps.deployable.slnf` paragraph in `CLAUDE.md` — record that the AppHost is now compiled, and that the exclusion rationale was what left it unverified (F8)
 
-**Checkpoint**: `dotnet build NexusOps.deployable.slnf` compiles the AppHost; `dotnet test` reports a non-zero test count.
+**Checkpoint**: ✅ `dotnet build NexusOps.deployable.slnf` compiles the AppHost; `dotnet test` reports 14 passing tests; a deliberately inverted assertion was confirmed to fail the run (SC-006).
+
+**Discovered during this phase**: `Microsoft.OpenApi` 2.0.0 carries a High-severity advisory (GHSA-v5pm-xwqc-g5wc) and reaches `NexusOps.AgentHost` and `NexusOps.Server` transitively via `Microsoft.AspNetCore.OpenApi` 10.0.8. Pre-existing on `master` and not among the 19 reviewed findings. Carried as finding 21; not addressed in this batch.
 
 ---
 

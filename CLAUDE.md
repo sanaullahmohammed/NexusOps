@@ -153,7 +153,9 @@ Dependabot config at `.github/dependabot.yml` keeps NuGet, npm, and GitHub Actio
 
 **Solution filter — `NexusOps.deployable.slnf`**
 
-`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to six projects: `NexusOps.AgentHost`, `NexusOps.Contracts`, `NexusOps.InventoryService`, `NexusOps.OrderService`, `NexusOps.ProductService`, and `NexusOps.Server`. `NexusOps.AppHost` is excluded because it is a dev-only Aspire orchestrator. Local development is unaffected; open `NexusOps.sln` as normal.
+`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to the eight .NET projects, excluding only `frontend.esproj`.
+
+`NexusOps.AppHost` was previously excluded on the grounds that it is a dev-only Aspire orchestrator. That rationale was wrong in practice: Dependabot is rooted at `/` and does update the AppHost's version-sensitive Aspire packages (commit `244b47d` bumped Aspire 13.3.5 → 13.4.3), so excluding it meant those updates landed in a project no workflow ever compiled. The AppHost has no project reference to `frontend.esproj` — it reaches the frontend through `AddViteApp` with a path — so including it does not couple npm into the dotnet job. Local development is unaffected; open `NexusOps.sln` as normal.
 
 **Azure AI credentials in CI**
 
