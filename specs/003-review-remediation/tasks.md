@@ -128,18 +128,23 @@
 
 **Purpose**: Close the credential footgun and end the documentation drift. Sequenced last so the docs are written once, against the final vocabulary.
 
-- [ ] T046 Add a `UserSecretsId` to `NexusOps.AgentHost/NexusOps.AgentHost.csproj`, matching the pattern the AppHost already uses (F6)
-- [ ] T047 Make `dotnet user-secrets` the primary documented credential path in `README.md`, with the environment variable as the CI and container alternative (F6)
-- [ ] T048 [P] Correct the workflow count in the `CLAUDE.md` CI/CD section — the sentence says four, the table lists three (F18)
-- [ ] T049 [P] Repoint `CLAUDE.md` **Active Feature Plan** from `specs/002-session-management/plan.md` to this feature (F18)
-- [ ] T050 [P] Sync the order status vocabulary at `README.md:99` to the actual `OrderStatus` enum (F18)
-- [ ] T051 [P] Correct the stale tool name `investigate_delayed_order` at `README.md:183` to `investigate_order_anomaly` (F18)
-- [ ] T052 [P] Put the evaluation-runner paragraph at `README.md:238` in the future tense, consistent with the "not yet implemented" note at `README.md:208` (F18)
-- [ ] T053 [P] Set `Status: Draft` → `Implemented` in `specs/001-ecommerce-domain-services/spec.md` (F18)
-- [ ] T054 Update `CLAUDE.md` Repository Structure and Current Build State — add `NexusOps.Tests`, the eleven-order seed count, and the health-endpoint change
-- [ ] T055 Set `Status: In Progress` → `Implemented` in `specs/003-review-remediation/spec.md`
+- [x] T046 Add a `UserSecretsId` to `NexusOps.AgentHost/NexusOps.AgentHost.csproj`, matching the pattern the AppHost already uses (F6)
+- [x] T047 Make `dotnet user-secrets` the primary documented credential path in `README.md`, with the environment variable as the CI and container alternative (F6)
+- [x] T048 [P] Correct the workflow count in the `CLAUDE.md` CI/CD section — the sentence says four, the table lists three (F18)
+- [x] T049 [P] Repoint `CLAUDE.md` **Active Feature Plan** from `specs/002-session-management/plan.md` to this feature (F18)
+- [x] T050 [P] Sync the order status vocabulary at `README.md:99` to the actual `OrderStatus` enum (F18)
+- [x] T051 [P] Correct the stale tool name `investigate_delayed_order` at `README.md:183` to `investigate_order_anomaly` (F18)
+- [x] T052 [P] Put the evaluation-runner paragraph at `README.md:238` in the future tense, consistent with the "not yet implemented" note at `README.md:208` (F18)
+- [x] T053 [P] Set `Status: Draft` → `Implemented` in `specs/001-ecommerce-domain-services/spec.md` (F18)
+- [x] T054 Update `CLAUDE.md` Repository Structure and Current Build State — add `NexusOps.Tests`, the eleven-order seed count, and the health-endpoint change
+- [x] T055 Set `Status: In Progress` → `Implemented` in `specs/003-review-remediation/spec.md`
 
-**Checkpoint**: `git grep` finds no surviving reference to the corrected vocabulary; no README or CLAUDE.md statement contradicts the code.
+**Checkpoint**: ✅ Build clean (0 warnings), 90 tests pass. `dotnet user-secrets list` responds, confirming the `UserSecretsId` is wired. A `git grep` sweep finds no surviving reference to `investigate_delayed_order`, the `placed/confirmed/refunded` vocabulary, "Four GitHub Actions", `packages/NexusOps.Evaluation`, `Status: Draft`, or an `ApiKey` key in any tracked appsettings file.
+
+**Notes**:
+- The `ApiKey` placeholder was removed from the tracked `appsettings.Development.json` rather than merely documented around, so no slot remains inviting a real key. Endpoint and DeploymentName stay, since neither is a credential.
+- A `## Testing` section was added to README.md — the Evaluation rewrite needed somewhere honest to point at for the checks that actually run.
+- `specs/001/research.md` and `specs/001/tasks.md` still say "10 orders". Left deliberately: they record what feature 001 executed at the time, and 001 FR-007 specifies a *minimum* of 10, which 11 satisfies. The living `data-model.md` is updated.
 
 ---
 

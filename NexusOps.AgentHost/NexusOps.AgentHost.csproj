@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- Azure AI credentials belong in user secrets, not in the tracked appsettings.Development.json.
+         See the credential setup section in README.md. -->
+    <UserSecretsId>20740d21-2570-4bbd-8cd9-21d725eaac1c</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
