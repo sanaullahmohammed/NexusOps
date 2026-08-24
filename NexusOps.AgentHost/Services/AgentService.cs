@@ -43,17 +43,23 @@ public sealed class AgentService : IAgentService
             var agentResponse = await _agent.RunAsync(messages, session: null, options: null, cancellationToken);
             responseText = agentResponse.ToString();
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // The caller hung up, or the host is shutting down. Neither is an agent failure, and
+            // reporting it as one would inflate failure metrics and return a 500 to nobody.
+            throw;
+        }
         catch (Exception ex)
         {
             // 002 FR-005: persist the user turn even when the agent fails; do not persist a failed
             // assistant turn. The session ID travels with the exception so the caller receives the
             // identifier that turn was written under — otherwise it is unreachable until its TTL.
-            await _store.AppendTurnsAsync(activeSessionId, [userTurn], options, cancellationToken);
+            await PersistAsync(activeSessionId, [userTurn], options);
             throw new AgentInvocationException(activeSessionId, ex);
         }
 
         var assistantTurn = new ConversationTurn("assistant", responseText, DateTimeOffset.UtcNow);
-        await _store.AppendTurnsAsync(activeSessionId, [userTurn, assistantTurn], options, cancellationToken);
+        await PersistAsync(activeSessionId, [userTurn, assistantTurn], options);
 
         var savedCount = Math.Min(history.Count + 2, options.MaxTurns);
         _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", SessionLogToken.For(activeSessionId), savedCount, DateTimeOffset.UtcNow);
@@ -71,7 +77,12 @@ public sealed class AgentService : IAgentService
     {
         // No identifier supplied: mint one. Reading the store first would be a guaranteed miss
         // against a key created microseconds ago, and would log a history load that never happened.
-        if (string.IsNullOrWhiteSpace(suppliedSessionId))
+        //
+        // A malformed identifier is treated the same way (002 FR-007, and the clarification at
+        // spec.md:78). This also keeps caller-controlled text out of the Redis key space and out of
+        // anything echoed back — the identifier is returned on the store-unavailable path and in the
+        // 500 body, so it must be a value this service minted, not arbitrary input.
+        if (!IsWellFormed(suppliedSessionId))
         {
             return (MintSession(now), []);
         }
@@ -97,6 +108,27 @@ public sealed class AgentService : IAgentService
                 return (suppliedSessionId, []);
         }
     }
+
+    /// <summary>
+    /// A session identifier is well formed only if this service could have minted it: a UUID in the
+    /// canonical hyphenated form, matching the opaque-token format the chat contract publishes.
+    /// </summary>
+    private static bool IsWellFormed(string? sessionId) =>
+        !string.IsNullOrWhiteSpace(sessionId) && Guid.TryParseExact(sessionId, "D", out _);
+
+    /// <summary>
+    /// Writes turns to the store using a token that is deliberately NOT the request's.
+    /// </summary>
+    /// <remarks>
+    /// The endpoint passes <c>HttpContext.RequestAborted</c>. Handing that to the store means a
+    /// client disconnect cancels the write — on the failure path that silently defeats 002 FR-005,
+    /// whose entire purpose is to survive the failure, and the swallowed cancellation surfaces as a
+    /// <c>session.degraded</c> warning blaming Redis for something Redis did not do. On the success
+    /// path it discards both turns after the model call has already been paid for. Persistence is
+    /// cheap, bounded, and worth completing after the caller has gone.
+    /// </remarks>
+    private Task PersistAsync(string sessionId, IReadOnlyList<ConversationTurn> turns, ConversationSessionOptions options) =>
+        _store.AppendTurnsAsync(sessionId, turns, options, CancellationToken.None);
 
     private string MintSession(DateTimeOffset now)
     {

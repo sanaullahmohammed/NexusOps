@@ -4,8 +4,11 @@ import react from '@vitejs/plugin-react';
 /** Where /api requests are forwarded when running the dev server. */
 const FALLBACK_API_TARGET = 'http://localhost:5186';
 
+// `||` rather than `??`: an empty-string SERVER_HTTPS is not null or undefined, so `??` would
+// pass it straight through and proxy to "" — the exact bug this fallback exists to prevent.
+// Both this and the guard below must treat empty as absent, or they disagree.
 const apiTarget =
-  process.env.SERVER_HTTPS ?? process.env.SERVER_HTTP ?? FALLBACK_API_TARGET;
+  process.env.SERVER_HTTPS || process.env.SERVER_HTTP || FALLBACK_API_TARGET;
 
 if (!process.env.SERVER_HTTPS && !process.env.SERVER_HTTP) {
   console.info(

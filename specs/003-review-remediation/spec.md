@@ -115,6 +115,10 @@ An operator deploys the system outside Development. The orchestrator's readiness
 - **FR-018**: Credentials MUST have a documented configuration path that does not route them into a tracked file. *(Finding 6.)*
 - **FR-019**: Project documentation MUST agree with the implementation on workflow inventory, order status vocabulary, tool names, delivered versus planned capability, and specification status. *(Finding 18.)*
 - **FR-020**: No project in the solution filter MAY resolve a package carrying a known high or critical severity advisory. Transitive vulnerabilities are pinned within their existing major version where a patched release exists. *(Finding 21.)*
+- **FR-021**: A readiness probe MUST NOT fail for a dependency the service is designed to survive. The Agent Host's `/health` reports only checks tagged `ready`; the conversation store is deliberately excluded. *(Review finding 22.)*
+- **FR-022**: A caller-supplied session identifier MUST be validated against the published format before it is used as a store key, echoed back, or logged. A malformed value is handled under 002 FR-007. *(Review finding 27.)*
+- **FR-023**: Conversation-turn persistence MUST NOT be cancelled by the caller's request being aborted, and a cancellation MUST NOT be reported as an agent failure. *(Review findings 23, 24, 25.)*
+- **FR-024**: Seed data MUST derive every date from a single date resolved per request, so no component can drift from another as the host's uptime grows. *(Review finding 26.)*
 
 ### Key Entities
 
@@ -158,6 +162,28 @@ An operator deploys the system outside Development. The orchestrator's readiness
 - Amending 002 FR-007 is an extension rather than a reversal. FR-007 addresses expired, unknown and malformed identifiers; a store outage is a fourth case it never contemplated.
 - Finding 19 of the review ("no .NET SDK available") did not reproduce — the SDK is present at version 10.0.400 — so it yields no requirement. Its practical consequence is that every batch in this feature is compiled and tested before being reported complete.
 
+## Post-Review Corrections
+
+A review of this branch raised nine further findings. Eight were fixed; one was accepted as a known
+issue. Two were held as merge-blocking.
+
+| # | Finding | Verdict |
+|---|---|---|
+| 22 | A Redis outage failed Agent Host readiness in every environment. `AddRedisDistributedCache` registers an untagged health check with `failureStatus: Unhealthy`, and `/health` had no predicate — so a store blip returned 503, the AppHost marked the service unhealthy, and a Kubernetes readiness probe would pull the pod from rotation. That defeats the `Unavailable` degradation path this very feature added. | **Fixed.** `/health` now reports only checks tagged `ready`. *Attribution corrected:* the review attributed this to moving `/health` out of the Development gate, but the Agent Host's `/health` was already unconditional on `master` — this is pre-existing, not introduced here. It belongs in this feature regardless, since this is the feature that makes the degradation claim. |
+| 23 | Persist-on-failure used the request's already-cancelled token, so 002 FR-005 silently did nothing on a client disconnect and the swallowed cancellation was logged as a Redis `timeout`. | **Fixed.** Persistence uses `CancellationToken.None`; surviving the failure is its purpose. |
+| 24 | `catch (Exception)` converted cancellation into `AgentInvocationException` → 500, inflating failure metrics. | **Fixed.** Cancellation is rethrown ahead of the generic catch. |
+| 25 | The success-path write used the same token, dropping both turns after the model call was paid for. | **Fixed.** Same `CancellationToken.None` path. |
+| 26 | `OrderStore` was a DI singleton, so its seed froze at startup while the endpoint recomputed the date per request. ORD-0002 — seeded three days overdue as the deliberate medium-severity example — would start reporting high after ~5 days of uptime. | **Fixed.** "Today" is now a parameter, resolved once per request and threaded through both the seed and the projection, so drift is impossible by construction. |
+| 27 | No session-ID format validation; arbitrary caller input became a Redis key, and this feature newly echoed it back on the `Unavailable` path and in the 500 body. | **Fixed.** Validated with `Guid.TryParseExact`; malformed values are handled under 002 FR-007, which had always specified this and was simply never implemented. |
+| 28 | The 500's advertised retry flow would permanently duplicate the prompt — it is already persisted, so a retry stores it twice. | **Fixed.** The response no longer advises resending; it directs the caller to continue with the returned `sessionId`. |
+| 29 | `WriteHealthResponse` is copy-pasted into five files. | **Accepted as a known issue** — see below. |
+
+The reviewer also confirmed as correct: the anomaly classification and severity boundary, the
+`Found`/`Missing`/`Unavailable` split and its wiring, the `SessionLogToken` unification, options
+validation, tool catch-clause ordering, the 400 mapping, seed integrity, and the solution-filter
+change adding no npm coupling.
+
 ## Known Issues Not Addressed
 
+- **Duplicated health response writer.** `WriteHealthResponse` appears identically in five files — the four services plus the Agent Host. This follows the existing convention, in which each service carries its own copy of `Extensions.cs`, and CLAUDE.md records the deliberate decision not to have a shared ServiceDefaults project. Hoisting it into `NexusOps.Contracts` would give that DTO library an ASP.NET framework dependency, which is a larger architectural change than this remediation should make unilaterally. A shared ServiceDefaults project is the real fix.
 - **Mixed line endings.** 28 tracked files across `NexusOps.AppHost/`, `NexusOps.Server/`, `frontend/` and `aspire.config.json` are committed with CRLF while the rest of the tree uses LF. Only `frontend/package-lock.json` is pinned here, because full normalisation would rewrite all 28 files in a single commit and redirect `git blame` on each. Worth a deliberate, separate decision.

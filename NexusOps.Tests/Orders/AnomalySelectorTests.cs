@@ -12,7 +12,7 @@ public class AnomalySelectorTests
 {
     private static readonly DateOnly Today = FixedTimeProvider.DefaultToday;
 
-    private static IReadOnlyList<Order> SeedOrders() => new OrderStore(FixedTimeProvider.Default).Orders;
+    private static IReadOnlyList<Order> SeedOrders() => OrderStore.GetOrders(Today);
 
     private static OrderAnomalyView Select(AnomalyReason? filter) =>
         new(AnomalySelector.Select(SeedOrders(), filter, Today));

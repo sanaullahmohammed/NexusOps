@@ -7,24 +7,25 @@ namespace NexusOps.OrderService.Data;
 /// In-memory seed data for the sample E-Commerce domain.
 /// </summary>
 /// <remarks>
-/// Delivery dates are expressed as offsets from the current date rather than as literals.
-/// The previous absolute dates were fixed in May–June 2026, so derived values such as
-/// <c>daysOverdue</c> grew by one every day the repository existed — ORD-0001 was reporting
-/// 106 days overdue by August. Resolving "today" through an injected <see cref="TimeProvider"/>
-/// keeps the sample plausible indefinitely and keeps date-derived assertions deterministic
-/// under test.
+/// <para>
+/// Delivery dates are expressed as offsets from a supplied date rather than as literals. The
+/// previous absolute dates were fixed in May–June 2026, so derived values such as
+/// <c>daysOverdue</c> grew by one every day the repository existed — ORD-0001 was reporting 106
+/// days overdue by August.
+/// </para>
+/// <para>
+/// "Today" is a parameter, not state. An earlier revision resolved it in the constructor from an
+/// injected <see cref="TimeProvider"/>, but the store was a DI singleton, so the seed froze at
+/// process start while the endpoint recomputed the current date per request. The two drifted apart
+/// on a long-lived host: ORD-0002 is seeded three days overdue as the deliberate medium-severity
+/// example, and would start reporting high after roughly five days of uptime. Taking the date as an
+/// argument means the caller resolves it once and every derived value agrees by construction.
+/// </para>
 /// </remarks>
-public sealed class OrderStore
+public static class OrderStore
 {
-    public OrderStore(TimeProvider timeProvider)
-    {
-        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
-        Orders = Seed(today);
-    }
-
-    public IReadOnlyList<Order> Orders { get; }
-
-    private static IReadOnlyList<Order> Seed(DateOnly today) =>
+    /// <summary>Returns the seeded orders positioned relative to <paramref name="today"/>.</summary>
+    public static IReadOnlyList<Order> GetOrders(DateOnly today) =>
     [
         // ORD-0001 — delayed well past the escalation threshold (high severity)
         new Order

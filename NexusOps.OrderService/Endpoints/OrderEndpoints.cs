@@ -8,7 +8,7 @@ public static class OrderEndpoints
 {
     public static WebApplication MapOrderEndpoints(this WebApplication app)
     {
-        app.MapGet("/orders/anomalies", (string? status, OrderStore store, TimeProvider timeProvider) =>
+        app.MapGet("/orders/anomalies", (string? status, TimeProvider timeProvider) =>
         {
             Models.AnomalyReason? filter = null;
 
@@ -23,14 +23,18 @@ public static class OrderEndpoints
                 }
             }
 
+            // Resolved once and threaded through both the seed and the projection, so every
+            // date-derived value in the response agrees.
             var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
 
-            return Results.Ok(AnomalySelector.Select(store.Orders, filter, today));
+            return Results.Ok(AnomalySelector.Select(OrderStore.GetOrders(today), filter, today));
         });
 
-        app.MapGet("/orders/{orderId}", (string orderId, OrderStore store) =>
+        app.MapGet("/orders/{orderId}", (string orderId, TimeProvider timeProvider) =>
         {
-            var order = store.Orders.FirstOrDefault(o =>
+            var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+
+            var order = OrderStore.GetOrders(today).FirstOrDefault(o =>
                 string.Equals(o.OrderId, orderId, StringComparison.OrdinalIgnoreCase));
 
             if (order is null)

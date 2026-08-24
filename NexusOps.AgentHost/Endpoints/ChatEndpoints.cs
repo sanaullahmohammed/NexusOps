@@ -30,9 +30,13 @@ public static class ChatEndpoints
                 // The user's turn was persisted under this session (002 FR-005). Return the
                 // identifier so the caller can retry into the same conversation rather than
                 // losing the turn to its TTL.
+                // Deliberately does not advise resending the prompt: it is already in the session's
+                // history, so resending would record it twice and the agent would see it twice.
+                // Continue the conversation with this sessionId instead.
                 return Results.Problem(
                     title: "The agent could not complete the request.",
-                    detail: "The prompt was recorded against the session below and can be retried.",
+                    detail: "The prompt was recorded in the session below. Continue with this sessionId; "
+                          + "resending the same prompt would record it a second time.",
                     statusCode: StatusCodes.Status500InternalServerError,
                     extensions: new Dictionary<string, object?> { ["sessionId"] = ex.SessionId });
             }

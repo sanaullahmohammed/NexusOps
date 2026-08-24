@@ -68,7 +68,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 - OTEL, health checks, and resilience extension methods implemented inline in `NexusOps.AgentHost/Extensions/` (`ServiceDefaultsExtensions.cs`, `OpenTelemetryExtensions.cs`, `HealthCheckExtensions.cs`) — no separate shared project
 - Frontend: React + Vite scaffold with Aspire proxy integration (dev proxy falls back to localhost when the AppHost is not the launcher)
 - **NexusOps.Tests**: xUnit suite covering anomaly classification and severity, order seed integrity, session resolution across store outages, turn trimming, startup config validation, and tool cancellation. Unit-level only — no Redis or Azure AI dependency, so it runs on fork PRs
-- Health endpoints: `/health` is mapped in **all** environments across every service and returns `{"status":"healthy"}` as JSON; `/alive` remains Development-only
+- Health endpoints: `/health` is mapped in **all** environments across every service and returns `{"status":"healthy"}` as JSON; `/alive` remains Development-only. AgentHost's `/health` reports only checks tagged `ready` — the Redis check is deliberately excluded, because the service is designed to keep serving when the store is unreachable, and failing readiness for it would remove the pod from rotation exactly when it can still answer
 
 **Planned (from roadmap):**
 - Workflow Orchestrator: MassTransit sagas, PostgreSQL state

@@ -9,12 +9,12 @@ namespace NexusOps.Tests.Orders;
 /// </summary>
 public class OrderStoreTests
 {
-    private static OrderStore Store() => new(FixedTimeProvider.Default);
+    private static IReadOnlyList<Order> Store() => OrderStore.GetOrders(FixedTimeProvider.DefaultToday);
 
     [Fact]
     public void OrderIds_AreUnique()
     {
-        var ids = Store().Orders.Select(o => o.OrderId).ToArray();
+        var ids = Store().Select(o => o.OrderId).ToArray();
 
         Assert.Equal(ids.Length, ids.Distinct(StringComparer.OrdinalIgnoreCase).Count());
     }
@@ -22,7 +22,7 @@ public class OrderStoreTests
     [Fact]
     public void EveryOrder_HasAtLeastOneLineItem()
     {
-        var empty = Store().Orders.Where(o => o.LineItems.Count == 0).Select(o => o.OrderId);
+        var empty = Store().Where(o => o.LineItems.Count == 0).Select(o => o.OrderId);
 
         Assert.Empty(empty);
     }
@@ -30,7 +30,7 @@ public class OrderStoreTests
     [Fact]
     public void TotalAmount_EqualsSumOfLineItems()
     {
-        foreach (var order in Store().Orders)
+        foreach (var order in Store())
         {
             var computed = order.LineItems.Sum(li => li.Quantity * li.UnitPrice);
 
@@ -43,7 +43,7 @@ public class OrderStoreTests
     [Fact]
     public void DeliveredOrders_HaveAnActualDeliveryDate()
     {
-        var delivered = Store().Orders.Where(o => o.Status == OrderStatus.Delivered).ToArray();
+        var delivered = Store().Where(o => o.Status == OrderStatus.Delivered).ToArray();
 
         Assert.NotEmpty(delivered);
         Assert.All(delivered, o => Assert.NotNull(o.ActualDelivery));
@@ -52,7 +52,7 @@ public class OrderStoreTests
     [Fact]
     public void UndeliveredOrders_HaveNoActualDeliveryDate()
     {
-        var undelivered = Store().Orders.Where(o => o.Status != OrderStatus.Delivered);
+        var undelivered = Store().Where(o => o.Status != OrderStatus.Delivered);
 
         Assert.All(undelivered, o => Assert.Null(o.ActualDelivery));
     }
@@ -60,7 +60,7 @@ public class OrderStoreTests
     [Fact]
     public void EveryAnomalyReason_IsRepresentedInTheSeedSet()
     {
-        var represented = Store().Orders
+        var represented = Store()
             .Where(o => o.AnomalyReason is not null)
             .Select(o => o.AnomalyReason!.Value)
             .Distinct();
@@ -73,22 +73,38 @@ public class OrderStoreTests
     [Fact]
     public void OrdersWithNoAnomalyReason_AreTheNormalMajority()
     {
-        var orders = Store().Orders;
+        var orders = Store();
 
         Assert.Equal(11, orders.Count);
         Assert.Equal(4, orders.Count(o => o.AnomalyReason is not null));
     }
 
     [Fact]
-    public void SeedDates_AreRelativeToTheProvidedClock()
+    public void SeedDates_AreRelativeToTheSuppliedDate()
     {
-        var early = new OrderStore(new FixedTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero)));
-        var late = new OrderStore(new FixedTimeProvider(new DateTimeOffset(2031, 1, 1, 0, 0, 0, TimeSpan.Zero)));
+        var early = OrderStore.GetOrders(new DateOnly(2030, 1, 1));
+        var late = OrderStore.GetOrders(new DateOnly(2031, 1, 1));
 
-        var earlyOrder = early.Orders.Single(o => o.OrderId == "ORD-0001");
-        var lateOrder = late.Orders.Single(o => o.OrderId == "ORD-0001");
+        var earlyOrder = early.Single(o => o.OrderId == "ORD-0001");
+        var lateOrder = late.Single(o => o.OrderId == "ORD-0001");
 
-        // A year later on the wall clock, the order is still the same number of days overdue.
+        // A year later, the order is still the same number of days overdue.
         Assert.Equal(365, lateOrder.ExpectedDelivery.DayNumber - earlyOrder.ExpectedDelivery.DayNumber);
+    }
+
+    [Fact]
+    public void TheMediumSeverityExample_StaysMediumHoweverLongTheHostRuns()
+    {
+        // Regression: the seed was once frozen at process start while the endpoint recomputed
+        // "today" per request, so ORD-0002 — deliberately seeded 3 days overdue as the medium
+        // example — began reporting high after roughly five days of uptime.
+        foreach (var day in new[] { 0, 1, 5, 30, 365 })
+        {
+            var today = FixedTimeProvider.DefaultToday.AddDays(day);
+            var order = OrderStore.GetOrders(today).Single(o => o.OrderId == "ORD-0002");
+            var overdue = today.DayNumber - order.ExpectedDelivery.DayNumber;
+
+            Assert.Equal(3, overdue);
+        }
     }
 }

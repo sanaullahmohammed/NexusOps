@@ -28,6 +28,8 @@ Content-Type: application/json
 | `sessionId` | No | `string` | Opaque UUID v4 string; absent, null, and empty-string are all equivalent — all mint a new session | New session is minted |
 
 > **Opaque token**: `sessionId` is an opaque handle. Callers MUST NOT parse, sort, or compare it structurally, and MUST NOT include it in URL paths or query parameters. The format is UUID v4 (`xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx`).
+>
+> The server **validates** the supplied value against the canonical hyphenated form. Anything else — including unhyphenated or brace-wrapped UUIDs — is malformed and starts a fresh session per FR-007. A rejected value never reaches the store key space and is never echoed back in a response or an error body.
 
 **Session ID lookup behaviour:**
 - Present (non-empty) + active → conversation history loaded; session expiry timer reset
@@ -76,13 +78,18 @@ nothing in the conversation store.
 {
   "type": "https://tools.ietf.org/html/rfc9110#section-15.6.1",
   "title": "The agent could not complete the request.",
-  "detail": "The prompt was recorded against the session below and can be retried.",
+  "detail": "The prompt was recorded in the session below. Continue with this sessionId; resending the same prompt would record it a second time.",
   "status": 500,
   "sessionId": "<string — the active session>"
 }
 ```
 
-Returned only when the agent itself fails. Store unavailability does NOT produce a 500 — the request proceeds statelessly.
+Returned only when the agent itself fails. Store unavailability does NOT produce a 500 — the request proceeds statelessly,
+and does not affect readiness either: `/health` excludes the conversation store, because the service is designed to keep
+serving without it (FR-016).
+
+The prompt is **already recorded** in the session. Continue the conversation with the returned `sessionId`; resending the
+same prompt would record it a second time and the agent would see it twice.
 
 The `sessionId` extension is **required** (FR-015). FR-005 persists the user's turn even when the
 agent fails; if the session was minted during that same request, a 500 without this field left the
