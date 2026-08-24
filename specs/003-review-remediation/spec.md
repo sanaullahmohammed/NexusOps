@@ -10,7 +10,9 @@
 
 ## Context
 
-A code review of `master` at commit `7332fb3` raised 19 findings. Each was verified against the source before being accepted. Sixteen were confirmed as stated, two were real defects filed against the wrong evidence, and one did not reproduce. One further defect was found during verification and is carried here as finding 20.
+A code review of `master` at commit `7332fb3` raised 19 findings. Each was verified against the source before being accepted. Sixteen were confirmed as stated, two were real defects filed against the wrong evidence, and one did not reproduce. Two further defects were found during verification and are carried here as findings 20 and 21.
+
+Finding 21 is a direct consequence of finding 10. A High-severity advisory had been sitting in the dependency graph unreported because no build in CI ever surfaced its warning as anything anyone read, and no test run existed to draw attention to it. It was found within minutes of the test project first compiling.
 
 This feature is remediation, not new capability. It corrects behaviour that already contradicts specifications 001 and 002, so several requirements below are amendments to those specs rather than new ground. Where a fix changes a stated requirement, the originating spec is amended in the same commit as the code, so no commit leaves the specifications contradicting the implementation.
 
@@ -112,6 +114,7 @@ An operator deploys the system outside Development. The orchestrator's readiness
 - **FR-017**: Every project subject to automated dependency updates MUST be compiled by CI. *(Finding 8.)*
 - **FR-018**: Credentials MUST have a documented configuration path that does not route them into a tracked file. *(Finding 6.)*
 - **FR-019**: Project documentation MUST agree with the implementation on workflow inventory, order status vocabulary, tool names, delivered versus planned capability, and specification status. *(Finding 18.)*
+- **FR-020**: No project in the solution filter MAY resolve a package carrying a known high or critical severity advisory. Transitive vulnerabilities are pinned within their existing major version where a patched release exists. *(Finding 21.)*
 
 ### Key Entities
 
@@ -132,6 +135,7 @@ An operator deploys the system outside Development. The orchestrator's readiness
 - **SC-008**: `/health` returns HTTP 200 with a JSON body under `ASPNETCORE_ENVIRONMENT=Production`.
 - **SC-009**: `npm run dev` in `frontend/` starts with a resolved proxy target and no orchestrator environment variables present.
 - **SC-010**: No statement in README.md or CLAUDE.md contradicts the implementation at the close of this feature.
+- **SC-011**: `dotnet list package --vulnerable --include-transitive` reports no vulnerable package for any project in the solution filter, and a Release build emits zero warnings.
 
 ## Clarifications
 
