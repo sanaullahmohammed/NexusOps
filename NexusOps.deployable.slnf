@@ -3,12 +3,14 @@
     "path": "NexusOps.sln",
     "projects": [
       "NexusOps.AgentHost\\NexusOps.AgentHost.csproj",
-      "NexusOps.ServiceDefaults\\NexusOps.ServiceDefaults.csproj",
+      "NexusOps.AppHost\\NexusOps.AppHost.csproj",
       "NexusOps.Contracts\\NexusOps.Contracts.csproj",
+      "NexusOps.ServiceDefaults\\NexusOps.ServiceDefaults.csproj",
       "NexusOps.InventoryService\\NexusOps.InventoryService.csproj",
       "NexusOps.OrderService\\NexusOps.OrderService.csproj",
       "NexusOps.ProductService\\NexusOps.ProductService.csproj",
-      "NexusOps.Server\\NexusOps.Server.csproj"
+      "NexusOps.Server\\NexusOps.Server.csproj",
+      "NexusOps.Tests\\NexusOps.Tests.csproj"
     ]
   }
 }

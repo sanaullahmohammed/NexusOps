@@ -5,17 +5,25 @@ namespace NexusOps.AgentHost.Tools;
 
 public sealed class ProductTools(IHttpClientFactory httpClientFactory, ILogger<ProductTools> logger)
 {
-    public async Task<ToolResult<ProductDetail>> GetProductDetailsAsync(string sku)
+    public async Task<ToolResult<ProductDetail>> GetProductDetailsAsync(
+        string sku,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var client = httpClientFactory.CreateClient("product-service");
-            var result = await client.GetFromJsonAsync<ProductDetail>($"/products/{Uri.EscapeDataString(sku)}");
+            var result = await client.GetFromJsonAsync<ProductDetail>($"/products/{Uri.EscapeDataString(sku)}", cancellationToken);
             if (result is null)
             {
                 return ToolResult<ProductDetail>.Fail($"Product with SKU {sku} was not found.");
             }
             return ToolResult<ProductDetail>.Ok(result);
+        }
+        catch (OperationCanceledException)
+        {
+            // The caller went away. Not a service fault — let it propagate rather than reporting
+            // an outage that never happened.
+            throw;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -28,7 +36,9 @@ public sealed class ProductTools(IHttpClientFactory httpClientFactory, ILogger<P
         }
     }
 
-    public async Task<ToolResult<ProductSummary[]>> ListProductsByCategoryAsync(string? category = null)
+    public async Task<ToolResult<ProductSummary[]>> ListProductsByCategoryAsync(
+        string? category = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -37,8 +47,12 @@ public sealed class ProductTools(IHttpClientFactory httpClientFactory, ILogger<P
                 ? "/products"
                 : $"/products?category={Uri.EscapeDataString(category)}";
 
-            var result = await client.GetFromJsonAsync<ProductSummary[]>(url);
+            var result = await client.GetFromJsonAsync<ProductSummary[]>(url, cancellationToken);
             return ToolResult<ProductSummary[]>.Ok(result ?? []);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

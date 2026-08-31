@@ -5,7 +5,9 @@ namespace NexusOps.AgentHost.Tools;
 
 public sealed class InventoryTools(IHttpClientFactory httpClientFactory, ILogger<InventoryTools> logger)
 {
-    public async Task<ToolResult<InventoryAlert[]>> GetInventoryAlertsAsync(bool outOfStockOnly = false)
+    public async Task<ToolResult<InventoryAlert[]>> GetInventoryAlertsAsync(
+        bool outOfStockOnly = false,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -14,8 +16,14 @@ public sealed class InventoryTools(IHttpClientFactory httpClientFactory, ILogger
                 ? "/inventory/alerts?outOfStockOnly=true"
                 : "/inventory/alerts";
 
-            var result = await client.GetFromJsonAsync<InventoryAlert[]>(url);
+            var result = await client.GetFromJsonAsync<InventoryAlert[]>(url, cancellationToken);
             return ToolResult<InventoryAlert[]>.Ok(result ?? []);
+        }
+        catch (OperationCanceledException)
+        {
+            // The caller went away. Not a service fault — let it propagate rather than reporting
+            // an outage that never happened.
+            throw;
         }
         catch (Exception ex)
         {
@@ -24,17 +32,23 @@ public sealed class InventoryTools(IHttpClientFactory httpClientFactory, ILogger
         }
     }
 
-    public async Task<ToolResult<InventoryLevel>> GetInventoryLevelAsync(string sku)
+    public async Task<ToolResult<InventoryLevel>> GetInventoryLevelAsync(
+        string sku,
+        CancellationToken cancellationToken = default)
     {
         try
         {
             var client = httpClientFactory.CreateClient("inventory-service");
-            var result = await client.GetFromJsonAsync<InventoryLevel>($"/inventory/{Uri.EscapeDataString(sku)}");
+            var result = await client.GetFromJsonAsync<InventoryLevel>($"/inventory/{Uri.EscapeDataString(sku)}", cancellationToken);
             if (result is null)
             {
                 return ToolResult<InventoryLevel>.Fail($"Inventory record for SKU {sku} was not found.");
             }
             return ToolResult<InventoryLevel>.Ok(result);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {

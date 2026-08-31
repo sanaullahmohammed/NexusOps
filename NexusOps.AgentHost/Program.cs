@@ -31,13 +31,14 @@ builder.Services.AddHttpClient("product-service", client =>
     client.BaseAddress = new Uri("http://product-service"));
 
 builder.AddRedisDistributedCache("redis");
-builder.Services.Configure<ConversationSessionOptions>(builder.Configuration.GetSection(ConversationSessionOptions.SectionName));
 
-// FR-008: fail at startup if MaxTurns is configured to 0 or a negative value
-var sessionSection = builder.Configuration.GetSection(ConversationSessionOptions.SectionName);
-var maxTurns = sessionSection.GetValue<int>("MaxTurns", 20);
-if (maxTurns <= 0)
-    throw new InvalidOperationException($"Session:MaxTurns must be a positive integer. Configured value '{maxTurns}' is invalid.");
+// 002 FR-008 / 003 FR-008: refuse to start on a non-positive MaxTurns or SlidingExpirationMinutes.
+// The previous guard covered MaxTurns only, so a zero SlidingExpirationMinutes started cleanly and
+// then failed every store write, misreported as a Redis connection fault.
+builder.Services.AddOptions<ConversationSessionOptions>()
+    .Bind(builder.Configuration.GetSection(ConversationSessionOptions.SectionName))
+    .ValidateDataAnnotations()
+    .ValidateOnStart();
 
 builder.Services.AddSingleton<IConversationStore, RedisConversationStore>();
 

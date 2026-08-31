@@ -61,12 +61,18 @@ Returned by `investigate_order_anomaly` and `get_order_details` tools.
 
 Returned in the `Anomalies` collection on `investigate_order_anomaly` responses.
 
-| Field       | Type   | Description                                                     |
-|-------------|--------|-----------------------------------------------------------------|
-| OrderId     | string | Order with the anomaly                                          |
-| AnomalyType | string | One of: delayed, missing, payment-failed                        |
-| Severity    | string | One of: low, medium, high                                       |
-| DaysOverdue | int?   | Number of days past expected delivery; null if not date-related |
+| Field            | Type             | Description                                                                       |
+|------------------|------------------|-----------------------------------------------------------------------------------|
+| OrderId          | string           | Order with the anomaly                                                            |
+| AnomalyType      | string           | One of: delayed, missing, payment-failed. Derived from the order's `AnomalyReason`, never from the query that selected it |
+| Severity         | string           | One of: medium, high. `missing` and `payment-failed` are always high; `delayed` is high past 7 days overdue, medium at or below |
+| DaysOverdue      | int?             | Days past expected delivery; null for anomalies that are not date-related. Never negative |
+| CustomerId       | string           | Who placed the order                                                              |
+| TotalAmount      | decimal          | Order value, so impact can be weighed without a second call                       |
+| ExpectedDelivery | DateOnly         | The delivery date that was promised                                               |
+| LineItems        | OrderLineItem\[] | Carries the SKUs that let an anomaly be correlated against inventory alerts without a per-order round trip |
+
+> **Amended by feature 003 (FR-001, FR-002, FR-004).** The original four-field shape omitted the fields the order service contract already published, and — critically — had no SKU, so the cross-service correlation the agent is instructed to perform was impossible from the response alone. `Severity` no longer includes `low`; nothing emitted it.
 
 ---
 
@@ -140,12 +146,15 @@ Each service has internal models that may diverge from Contracts DTOs. Mapping o
 |------------------|------------------|----------------------------------------|
 | OrderId          | string           | PK                                     |
 | CustomerId       | string           |                                        |
-| Status           | OrderStatus enum | pending/processing/shipped/delivered/delayed/cancelled — first-class, not computed |
+| Status           | OrderStatus enum | pending/processing/shipped/delivered/delayed/cancelled — lifecycle position; first-class, not computed |
 | TotalAmount      | decimal          |                                        |
-| ExpectedDelivery | DateOnly         |                                        |
-| ActualDelivery   | DateOnly?        |                                        |
+| ExpectedDelivery | DateOnly         | Seeded relative to the current date, resolved via `TimeProvider` |
+| ActualDelivery   | DateOnly?        | Seeded relative to the current date    |
 | LineItems        | List\<LineItem\> |                                        |
-| CreatedAt        | DateTime         |                                        |
+| CreatedAt        | DateTime         | Seeded relative to the current date    |
+| AnomalyReason    | AnomalyReason?   | Delayed/Missing/PaymentFailed, or null when the order is not anomalous. Orthogonal to `Status`: status is where the order is, this is what is wrong with it |
+
+> **Amended by feature 003 (FR-001, FR-003, FR-005).** `AnomalyReason` was added because the anomaly endpoint previously derived its classification from the query string — the single cancelled order reported as `missing` under one filter and `payment-failed` under the next. Seed dates moved from absolute literals to offsets from the current date; the literals were fixed in May–June 2026, so `daysOverdue` grew by one every day and read as 106 by August.
 
 ### Inventory Service Internal: `InventoryRecord`
 
@@ -177,8 +186,11 @@ All three services seed from the same SKU constants. Cross-service integrity req
 
 | Constraint | Details |
 |---|---|
-| ≥ 2 delayed orders | ORD-0001, ORD-0002 have status = `delayed` |
+| ≥ 2 delayed orders | ORD-0001 (14 days overdue → high), ORD-0002 (3 days overdue → medium) — chosen to exercise both sides of the severity threshold |
 | ≥ 1 order referencing out-of-stock product | ORD-0003 contains SKU-ELEC-001; SKU-ELEC-001 has QuantityOnHand = 0 |
 | ≥ 2 products below reorder threshold | SKU-ELEC-001 (0 stock), SKU-APRL-003 (5 stock, threshold 10) |
 | ≥ 15 products across 3 categories | 5 Electronics, 5 Apparel, 5 Home & Garden |
-| ≥ 10 orders in varied states | 2 delayed, 1 cancelled, 2 shipped, 2 processing, 2 delivered, 1 pending |
+| ≥ 10 orders in varied states | 11 orders: 2 delayed, 1 cancelled, 3 shipped, 2 processing, 2 delivered, 1 pending |
+| Every anomaly reason represented | ORD-0001 and ORD-0002 `Delayed`; ORD-0009 `PaymentFailed`; ORD-0011 `Missing` — so each documented filter returns a distinct, non-empty result |
+
+> **Amended by feature 003 (FR-003).** ORD-0011 was added because the seed set held exactly one non-delayed anomalous order, leaving two of the three documented filter values with no data of their own to return.
