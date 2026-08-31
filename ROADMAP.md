@@ -23,7 +23,7 @@ Run each remaining prompt in a **fresh Claude Code session** (Sonnet for specs/i
 - `NexusOps.Server` + `frontend/` remain scaffold reference artifacts; no frontend work
 - Testing: one Aspire.Hosting.Testing integration test per saga, minimum
 - Local orchestration uses `aspire start` for delegated agent sessions or `dotnet run --project NexusOps.AppHost` for the documented human quickstart; no deployment
-- Azure AI credentials are unavailable. Build, unit, saga, approval, and Aspire integration tests MUST NOT require them. Live chat and model-based evaluation are optional manual checks and MUST skip with a clear message when credentials are absent.
+- Azure AI credentials are available locally. Build, unit, saga, approval, and Aspire integration tests MUST NOT require them (CI runs credential-free). Live chat and model-based evaluation MUST skip with a clear message when credentials are absent so CI never needs them, but they are expected to pass in local runs where credentials are present.
 - When MassTransit is introduced, pin all `MassTransit*` packages to v8.x and add a Dependabot major-version ignore rule; v9 is commercial and out of scope.
 - Resume framing: fintech ops → agentic workflows (investigation fan-out ≈ upstream aggregation; approval gate ≈ maker-checker; compensation ≈ reversing partial writes; curated tools ≈ governed API surface)
 
@@ -43,7 +43,7 @@ Completed on 2026-08-31: PR #37 was reviewed, corrected, and merged as `3ea131d`
 
 ## Prompt 3 — Implement 004 (Sonnet)
 
-> Read ROADMAP.md and specs/004-*/plan.md and tasks.md. Implement the tasks in order. Verify with `aspire start` that RabbitMQ, Postgres, and WorkflowOrchestrator appear healthy. Without Azure AI credentials, prove the route through unit and integration tests: the `investigate_order_root_cause` handler publishes the command, the saga fans out over AMQP, and the aggregated response returns. If valid Azure AI credentials happen to be available, additionally run the optional chat smoke test "investigate the root cause for order ORD-1002"; otherwise report it skipped, not failed. Update CLAUDE.md's Current Build State when done.
+> Read ROADMAP.md and specs/004-*/plan.md and tasks.md. Implement the tasks in order. Verify with `aspire start` that RabbitMQ, Postgres, and WorkflowOrchestrator appear healthy. Prove the route through unit and integration tests: the `investigate_order_root_cause` handler publishes the command, the saga fans out over AMQP, and the aggregated response returns. Since Azure AI credentials are available, also run the chat smoke test "investigate the root cause for order ORD-1002" and include its output in the completion report. Update CLAUDE.md's Current Build State when done.
 
 ## Prompt 4 — Spec 005 + implement: ActionSaga, approval gate, notification consumer (Sonnet)
 
@@ -51,7 +51,7 @@ Completed on 2026-08-31: PR #37 was reviewed, corrected, and merged as `3ea131d`
 
 ## Prompt 5 — Spec 006 + implement: Evaluation runner (Sonnet)
 
-> Read ROADMAP.md and the constitution. Create and implement spec 006-evaluation: console project `NexusOps.Evaluation` with a JSON dataset of 20–30 realistic user prompts, each labeled with expected tool selection and expected path (direct vs saga). Keep it dependency-light — no eval frameworks. The runner MUST provide a credential-free `--validate-only` mode that validates dataset schema, unique case IDs, supported tool names, and expected-path values. Live mode sends prompts to a running AgentHost, captures which tool the agent invoked, and reports pass/fail per case plus a summary table; when Azure AI credentials are absent, live mode exits as skipped with setup guidance rather than failing CI. Update README's Evaluation section with both commands and their credential requirements.
+> Read ROADMAP.md and the constitution. Create and implement spec 006-evaluation: console project `NexusOps.Evaluation` with a JSON dataset of 20–30 realistic user prompts, each labeled with expected tool selection and expected path (direct vs saga). Keep it dependency-light — no eval frameworks. The runner MUST provide a credential-free `--validate-only` mode that validates dataset schema, unique case IDs, supported tool names, and expected-path values — this is what CI runs. Live mode sends prompts to a running AgentHost, captures which tool the agent invoked, and reports pass/fail per case plus a summary table; live mode MUST exit as skipped with setup guidance (not a failure) when credentials are absent, so CI never breaks. Local runs with credentials available are expected to execute live mode and record results. Update README's Evaluation section with both commands and their credential requirements.
 
 ## Prompt 6 — Integration tests (Sonnet)
 
@@ -65,4 +65,4 @@ Completed on 2026-08-31: PR #37 was reviewed, corrected, and merged as `3ea131d`
 
 **Credential-free definition of done:** `aspire start` locally → all resources healthy → investigation saga integration tests pass, including degraded partial results → refund remains pending until approval → approve via `POST /api/approvals/{id}/approve` → notification log observed → rejection path passes → `NexusOps.Evaluation --validate-only` passes → `dotnet test` green → README, CLAUDE.md, constitution, and specs are reconciled.
 
-**Optional live-Azure acceptance:** When valid Azure AI credentials are available, chat with the agent → trigger a root-cause investigation → request a refund → approve it via curl → observe the notification log → run the live `NexusOps.Evaluation` suite and record its pass rate. This is manual evidence, not a credential-free CI gate.
+**Live-Azure acceptance (required locally, skipped in CI):** Chat with the agent → trigger a root-cause investigation → request a refund → approve it via curl → observe the notification log → run the live `NexusOps.Evaluation` suite and record its pass rate. Azure AI credentials are available locally; this acceptance check MUST be completed before the roadmap is considered done. It is not a CI gate — CI remains credential-free.
