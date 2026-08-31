@@ -25,6 +25,7 @@ Two saga designs:
 
 ```
 NexusOps.AppHost/          # Aspire AppHost — topology, service discovery, env wiring
+NexusOps.ServiceDefaults/  # Shared class library — OTEL, health checks, resilience, service discovery
 NexusOps.AgentHost/        # ASP.NET Core + Microsoft Agent Framework — LLM reasoning, tool dispatch
 NexusOps.Contracts/        # Shared library — ToolResult<T>, ToolNames, SeedDataConstants, response DTOs
 NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations, in-memory seed data
@@ -51,7 +52,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 | Saga Persistence | PostgreSQL + EF Core (planned) |
 | Frontend | React 19 + Vite + TypeScript |
 | Notification Service | Node.js + Express + TypeScript + amqplib (planned) |
-| Observability | OpenTelemetry via AgentHost extensions |
+| Observability | OpenTelemetry via `NexusOps.ServiceDefaults` (shared class library) |
 
 ## Current Build State
 
@@ -65,7 +66,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 - **NexusOps.ProductService**: ASP.NET Core Minimal API — `GET /products/{sku}`, `GET /products?category=`, in-memory seed data (15 products)
 - **6 Direct-path tools** wired into AgentHost via `AIFunctionFactory.Create(...)`: `investigate_order_anomaly`, `get_order_details`, `get_inventory_alerts`, `get_inventory_level`, `get_product_details`, `list_products_by_category`
 - Agent instructions updated with canonical tool routing rules and multi-tool cross-service composition guidance
-- OTEL, health checks, and resilience extension methods implemented inline in `NexusOps.AgentHost/Extensions/` (`ServiceDefaultsExtensions.cs`, `OpenTelemetryExtensions.cs`, `HealthCheckExtensions.cs`) — no separate shared project
+- **NexusOps.ServiceDefaults**: shared class library — `AddServiceDefaults()`, `ConfigureOpenTelemetry()`, `AddDefaultHealthChecks()`, `MapDefaultEndpoints()` in `namespace Microsoft.Extensions.Hosting`; referenced by all five service projects
 - Frontend: React + Vite scaffold with Aspire proxy integration (dev proxy falls back to localhost when the AppHost is not the launcher)
 - **NexusOps.Tests**: xUnit suite covering anomaly classification and severity, order seed integrity, session resolution across store outages, turn trimming, startup config validation, and tool cancellation. Unit-level only — no Redis or Azure AI dependency, so it runs on fork PRs
 - Health endpoints: `/health` is mapped in **all** environments across every service and returns `{"status":"healthy"}` as JSON; `/alive` remains Development-only. AgentHost's `/health` reports only checks tagged `ready` — the Redis check is deliberately excluded, because the service is designed to keep serving when the store is unreachable, and failing readiness for it would remove the pod from rotation exactly when it can still answer
@@ -118,7 +119,7 @@ out/
 *.lscache
 ```
 
-This matches the pattern used by all existing projects (`NexusOps.AgentHost`, `NexusOps.AppHost`, `NexusOps.Server`, and all domain services). The root `.gitignore` covers IDE/OS/secrets patterns; per-project files cover build output.
+This matches the pattern used by all existing projects (`NexusOps.AgentHost`, `NexusOps.AppHost`, `NexusOps.ServiceDefaults`, `NexusOps.Server`, and all domain services). The root `.gitignore` covers IDE/OS/secrets patterns; per-project files cover build output.
 
 ---
 
@@ -159,7 +160,7 @@ Dependabot config at `.github/dependabot.yml` keeps NuGet, npm, and GitHub Actio
 
 **Solution filter — `NexusOps.deployable.slnf`**
 
-`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to the eight .NET projects, excluding only `frontend.esproj`.
+`NexusOps.sln` includes `frontend.esproj` (Aspire JavaScript project type). When MSBuild processes the full solution it invokes npm, coupling Node tooling into the dotnet job. The `.slnf` solution filter scopes CI dotnet steps to the nine .NET projects, excluding only `frontend.esproj`.
 
 `NexusOps.AppHost` was previously excluded on the grounds that it is a dev-only Aspire orchestrator. That rationale was wrong in practice: Dependabot is rooted at `/` and does update the AppHost's version-sensitive Aspire packages (commit `244b47d` bumped Aspire 13.3.5 → 13.4.3), so excluding it meant those updates landed in a project no workflow ever compiled. The AppHost has no project reference to `frontend.esproj` — it reaches the frontend through `AddViteApp` with a path — so including it does not couple npm into the dotnet job. Local development is unaffected; open `NexusOps.sln` as normal.
 
