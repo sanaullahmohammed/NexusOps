@@ -2,7 +2,7 @@
 
 <!-- SPECKIT START -->
 
-**Active Feature Plan**: [specs/004-docs-honesty-pass/plan.md](specs/004-docs-honesty-pass/plan.md)
+**Active Feature Plan**: [specs/005-workflow-orchestrator/plan.md](specs/005-workflow-orchestrator/plan.md)
 
 ## Project Overview
 
