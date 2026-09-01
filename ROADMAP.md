@@ -7,7 +7,7 @@ Run each remaining prompt in a **fresh Claude Code session** (Sonnet for specs/i
 - [x] Prompt 0 — Housekeeping (PR #37 merged; dependency PRs cleared)
 - [x] Prompt 1 — README honesty pass (spec-kit feature `004-docs-honesty-pass`)
 - [x] Prompt 2 — Spec 005: OrderInvestigationSaga (renumbered from 004 — that slot was consumed by Prompt 1's spec-kit feature)
-- [ ] Prompt 3 — Implement 005
+- [x] Prompt 3 — Implement 005 (commit `c71e80b`; live-verified with real RabbitMQ/Postgres/Azure AI credentials — see notes under Prompt 3 below)
 - [ ] Prompt 4 — Spec 006 + implement: approval actions
 - [ ] Prompt 5 — Spec 007 + implement: evaluation runner
 - [ ] Prompt 6 — Integration tests
@@ -44,6 +44,8 @@ Completed on 2026-08-31: PR #37 was reviewed, corrected, and merged as `3ea131d`
 ## Prompt 3 — Implement 005 (Sonnet)
 
 > Read ROADMAP.md and specs/005-*/plan.md and tasks.md. Implement the tasks in order. Verify with `aspire start` that RabbitMQ, Postgres, and WorkflowOrchestrator appear healthy. Prove the route through unit and integration tests: the `investigate_order_root_cause` handler publishes the command, the saga fans out over AMQP, and the aggregated response returns. Since Azure AI credentials are available, also run the chat smoke test "investigate the root cause for order ORD-1002" and include its output in the completion report. Update CLAUDE.md's Current Build State when done.
+
+Completed on 2026-09-01 as commit `c71e80b`: all 6 resources (Redis, RabbitMQ, Postgres, WorkflowOrchestrator, domain services, AgentHost) came up healthy under a plain `dotnet run --project NexusOps.AppHost` (the `aspire` CLI in this environment is pinned to 13.2.1 against the project's 13.5.3 Aspire packages, which breaks its backchannel and makes `aspire start`/`aspire describe` unusable here — this is an environment/tooling mismatch, not an application defect; a plain `dotnet run` works fine and is what the live verification below used). `dotnet build`/`dotnet test`: 0 errors, 111/111 passing. The literal smoke-test prompt ("...ORD-1002") correctly returned `Completeness: Complete` with all three findings `NotFound`, since ORD-1002 isn't a seed order — this is the spec's own "confirmed not-found is a completed finding" behavior working as designed, not a failure. Re-run against a real seed order (ORD-0003) for a substantive result: the agent correctly cited the SKU-ELEC-001 stockout as the root cause. Additionally killed InventoryService mid-investigation and confirmed a `Degraded` result naming the unavailable source rather than a hang, and confirmed all three routing shapes (anomaly list / plain status / root-cause) select the correct tool. `CLAUDE.md`'s Current Build State updated accordingly.
 
 ## Prompt 4 — Spec 006 + implement: ActionSaga, approval gate, notification consumer (Sonnet)
 
