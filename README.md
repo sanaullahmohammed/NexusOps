@@ -6,6 +6,18 @@ Ships with an **E-Commerce Operations** sample domain. The same orchestration co
 
 ---
 
+## Why this project
+
+NexusOps is a proof-of-concept that translates patterns from fintech operations engineering into agentic-AI workflow design. Three patterns carry over directly:
+
+- **Multi-source aggregation → investigation fan-out.** Reconciling an incident across trading, settlement, and reference-data systems maps to `OrderInvestigationSaga` fanning out reads across Order, Inventory, and Product services in parallel and returning partial results under degradation.
+- **Maker-checker approval → the human approval gate.** Financial operations rarely let one actor both propose and execute a state-changing action. `OrderActionSaga` encodes the same discipline: any mutation (refund, cancel, notify) pauses in an `AwaitingApproval` state until a human approves it.
+- **Compensation on partial failure → saga compensation.** Reversing a partially-applied write when a downstream leg fails is the same shape whether the leg is a trade settlement or a refund whose confirmation notification never sent.
+
+The AI agent supplies the natural-language front end; the saga orchestrator supplies the durability guarantees an operations team would expect from any system that touches money or inventory. Curated tools stand in for a governed API surface — the agent gets named capabilities, never raw database or endpoint access.
+
+---
+
 ## Architecture
 
 ```mermaid
@@ -25,16 +37,16 @@ graph TD
         Inv[Inv. Svc]
     end
 
-    subgraph Async [Workflow Tools - AMQP]
-        RMQ[[RabbitMQ]]@{ "type" : "queue" }
-        subgraph Orch [Workflow Orchestrator]
-            MT[MassTransit Sagas]
+    subgraph Async [Workflow Tools - AMQP, planned]
+        RMQ[[RabbitMQ - planned]]@{ "type" : "queue" }
+        subgraph Orch [Workflow Orchestrator, planned]
+            MT[MassTransit Sagas - planned]
             MT_D[• OrderInvestigation<br/>• OrderAction]
         end
-        PG[(PostgreSQL<br/>saga state)]
+        PG[(PostgreSQL<br/>saga state - planned)]
     end
 
-    Notify[Notification Service<br/><i>Node.js/TS</i>]
+    Notify[Notification Service - planned<br/><i>Node.js/TS</i>]
 
     %% Connections
     Foundry <==> |HTTPS| AH
@@ -57,8 +69,12 @@ graph TD
     %% Styles
     style AH fill:#2d3436,color:#fff,stroke:#fff
     style Foundry fill:#0984e3,color:#fff,stroke:#74b9ff
-    style RMQ fill:#e67e22,color:#fff,stroke:#d35400
-    style MT fill:#2d3436,color:#fff,stroke:#fff
+    style RMQ fill:#e67e22,color:#fff,stroke:#d35400,stroke-dasharray: 5 5
+    style MT fill:#2d3436,color:#fff,stroke:#fff,stroke-dasharray: 5 5
+    style PG stroke-dasharray: 5 5
+    style Notify stroke-dasharray: 5 5
+    style Orch stroke-dasharray: 5 5
+    style Async stroke-dasharray: 5 5
 ```
 
 ### Two Communication Paths
@@ -73,18 +89,19 @@ Every request follows one of two paths, decided by the AI agent:
 
 ## Tech Stack
 
-| Component | Technology |
-|---|---|
-| AI Reasoning | Microsoft Agent Framework |
-| Durable Orchestration | MassTransit + RabbitMQ |
-| Model Provider & Evaluation | Azure AI Foundry |
-| App Orchestration & Observability | Aspire |
-| Agent Host | ASP.NET Core |
-| Workflow Orchestrator | ASP.NET Core + Entity Framework Core |
-| Domain Services (Product, Order, Inventory) | ASP.NET Core Minimal APIs |
-| Notification Service | Node.js + Express (TypeScript) + amqplib |
-| Saga Persistence | PostgreSQL |
-| Message Broker | RabbitMQ |
+| Component | Technology | Status |
+|---|---|---|
+| AI Reasoning | Microsoft Agent Framework | Implemented |
+| Durable Orchestration | MassTransit + RabbitMQ | Planned |
+| Model Provider | Azure AI Foundry | Implemented |
+| Evaluation | Azure AI Foundry evaluators | Planned |
+| App Orchestration & Observability | Aspire | Implemented |
+| Agent Host | ASP.NET Core | Implemented |
+| Workflow Orchestrator | ASP.NET Core + Entity Framework Core | Planned |
+| Domain Services (Product, Order, Inventory) | ASP.NET Core Minimal APIs | Implemented |
+| Notification Service | Node.js + Express (TypeScript) + amqplib | Planned |
+| Saga Persistence | PostgreSQL | Planned |
+| Message Broker | RabbitMQ | Planned |
 
 ---
 
@@ -228,6 +245,8 @@ specs/                     # Feature specifications, plans, and task lists
 
 ### OrderInvestigationSaga
 
+**Status:** Planned design — not yet implemented.
+
 Coordinates parallel data gathering from multiple services for complex read queries.
 
 ```
@@ -237,6 +256,8 @@ Requested → Dispatching → WaitingForResults → Aggregating → Completed / 
 Fans out to Order, Inventory, and Product services simultaneously. Returns partial results with degradation notes if a service is unavailable.
 
 ### OrderActionSaga
+
+**Status:** Planned design — not yet implemented.
 
 Handles operations with real-world side effects through an approval gate.
 
