@@ -2,7 +2,7 @@
 
 <!-- SPECKIT START -->
 
-**Active Feature Plan**: [specs/003-review-remediation/plan.md](specs/003-review-remediation/plan.md)
+**Active Feature Plan**: [specs/004-docs-honesty-pass/plan.md](specs/004-docs-honesty-pass/plan.md)
 
 ## Project Overview
 
