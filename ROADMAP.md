@@ -6,7 +6,7 @@ Run each remaining prompt in a **fresh Claude Code session** (Sonnet for specs/i
 
 - [x] Prompt 0 — Housekeeping (PR #37 merged; dependency PRs cleared)
 - [x] Prompt 1 — README honesty pass (spec-kit feature `004-docs-honesty-pass`)
-- [ ] Prompt 2 — Spec 005: OrderInvestigationSaga (renumbered from 004 — that slot was consumed by Prompt 1's spec-kit feature)
+- [x] Prompt 2 — Spec 005: OrderInvestigationSaga (renumbered from 004 — that slot was consumed by Prompt 1's spec-kit feature)
 - [ ] Prompt 3 — Implement 005
 - [ ] Prompt 4 — Spec 006 + implement: approval actions
 - [ ] Prompt 5 — Spec 007 + implement: evaluation runner
