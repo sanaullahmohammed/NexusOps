@@ -8,7 +8,7 @@
 
 ## Requirement Completeness
 
-- [ ] CHK001 Are requirements defined for an order whose line items reference a SKU present in one of Inventory/Product but not the other? [Completeness, Gap]
+- [x] CHK001 Are requirements defined for an order whose line items reference a SKU present in one of Inventory/Product but not the other? [Completeness, Gap]
 - [ ] CHK002 Is a bound (or explicit "no bound") stated for the number of line-item SKUs a single investigation must handle? [Completeness, Gap, Scale]
 - [ ] CHK003 Are requirements defined for what the operator sees if they request an investigation for the same order twice before the first completes, beyond "each is independent" — e.g., is receiving two separate answers to the same question ever confusing enough to warrant its own requirement? [Completeness, Spec Edge Cases]
 
@@ -16,12 +16,12 @@
 
 - [ ] CHK004 Is "typical local development conditions" in SC-006 given any measurable boundary (hardware, concurrent load), or left to reader interpretation? [Ambiguity, Spec §SC-006]
 - [ ] CHK005 Is "reference not found" (Edge Cases) explicitly identified as the same concept as the `NotFound` status (Key Entities/Source Finding), or could a reader treat them as two different states? [Clarity, Spec Edge Cases / Key Entities]
-- [ ] CHK006 Does FR-009's "retried or reconciled" commit to one resolution strategy, or does it leave two materially different behaviors open at the requirements level? [Ambiguity, Spec §FR-009]
+- [x] CHK006 Does FR-009's "retried or reconciled" commit to one resolution strategy, or does it leave two materially different behaviors open at the requirements level? [Ambiguity, Spec §FR-009]
 
 ## Requirement Consistency
 
-- [ ] CHK007 Are the three sources (order, inventory, product) named consistently across User Stories, Functional Requirements, and Key Entities, or does phrasing drift (e.g., "stock position" vs. "inventory data" vs. "Inventory finding")? [Consistency]
-- [ ] CHK008 Do FR-006 and the Edge Cases entry on "order doesn't exist vs. Order service unavailable" use identical terminology throughout the spec, with no section at risk of conflating `NotFound` with `Unavailable`? [Consistency, Spec §FR-006]
+- [x] CHK007 Are the three sources (order, inventory, product) named consistently across User Stories, Functional Requirements, and Key Entities, or does phrasing drift (e.g., "stock position" vs. "inventory data" vs. "Inventory finding")? [Consistency]
+- [x] CHK008 Do FR-006 and the Edge Cases entry on "order doesn't exist vs. Order service unavailable" use identical terminology throughout the spec, with no section at risk of conflating `NotFound` with `Unavailable`? [Consistency, Spec §FR-006]
 
 ## Acceptance Criteria Quality
 
@@ -30,7 +30,7 @@
 
 ## Scenario Coverage
 
-- [ ] CHK011 Are failure requirements defined per-source (order vs. inventory vs. product independently), not just for the aggregate "one/two/all sources fail" cases? [Coverage, Spec §FR-004/FR-005]
+- [x] CHK011 Are failure requirements defined per-source (order vs. inventory vs. product independently), not just for the aggregate "one/two/all sources fail" cases? [Coverage, Spec §FR-004/FR-005]
 - [ ] CHK012 Are requirements defined for what the operator should do after receiving a `Degraded` or `Failed` result (e.g., retry guidance, expected wait before re-asking), or is that left unspecified? [Gap, Recovery Flow]
 - [ ] CHK013 Is it specified whether an operator may investigate any order, or whether an authorization/visibility boundary applies — or is that explicitly deferred? [Gap, Security]
 
@@ -46,13 +46,13 @@
 
 ## Dependencies & Assumptions
 
-- [ ] CHK018 Is the assumption "a line item on an order references a product by SKU" traceable to a concrete data shape, or only asserted narratively? [Assumption, Spec Assumptions]
-- [ ] CHK019 Is the non-negotiable status of the locked technical decisions (MassTransit v8, RabbitMQ, PostgreSQL/EF Core) stated clearly enough that a future editor of this spec won't mistake them for an open implementation choice still up for debate? [Traceability, Spec Assumptions]
+- [x] CHK018 Is the assumption "a line item on an order references a product by SKU" traceable to a concrete data shape, or only asserted narratively? [Assumption, Spec Assumptions]
+- [x] CHK019 Is the non-negotiable status of the locked technical decisions (MassTransit v8, RabbitMQ, PostgreSQL/EF Core) stated clearly enough that a future editor of this spec won't mistake them for an open implementation choice still up for debate? [Traceability, Spec Assumptions]
 
 ## Ambiguities & Conflicts
 
 - [ ] CHK020 Is the read/mutation distinction in FR-012 ("no approval gate... consistent with all other... read operations") stated precisely enough to preclude a future reader from assuming it also exempts a later mutating capability from Constitution Principle III? [Conflict-check, Spec §FR-012]
-- [ ] CHK021 Does FR-015's domain-pluggability requirement give a concrete, checkable test (not just a description) for what "removing this domain would not require changes to the core" means in practice? [Measurability, Spec §FR-015]
+- [x] CHK021 Does FR-015's domain-pluggability requirement give a concrete, checkable test (not just a description) for what "removing this domain would not require changes to the core" means in practice? [Measurability, Spec §FR-015]
 
 ## Notes
 

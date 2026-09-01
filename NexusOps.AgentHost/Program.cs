@@ -1,3 +1,4 @@
+using MassTransit;
 using Microsoft.OpenApi;
 using NexusOps.AgentHost.Endpoints;
 using NexusOps.AgentHost.Extensions;
@@ -41,6 +42,19 @@ builder.Services.AddOptions<ConversationSessionOptions>()
     .ValidateOnStart();
 
 builder.Services.AddSingleton<IConversationStore, RedisConversationStore>();
+
+// AgentHost's only saga-facing surface: OrderTools resolves a request client from IClientFactory
+// per call (see OrderTools.cs) and awaits the saga's response. No consumers, no saga logic — that
+// all lives in NexusOps.WorkflowOrchestrator (Constitution Principle I).
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        var connectionString = builder.Configuration.GetConnectionString("rabbitmq");
+        cfg.Host(new Uri(connectionString!));
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 builder.Services.AddToolHandlers(builder.Configuration);
 builder.Services.AddAgentServices(builder.Configuration);

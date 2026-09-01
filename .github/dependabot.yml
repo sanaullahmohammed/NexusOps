@@ -26,6 +26,9 @@ updates:
       - dependency-name: "Aspire.*"
         update-types:
           - version-update:semver-major
+      - dependency-name: "MassTransit*"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: npm
     directory: /frontend

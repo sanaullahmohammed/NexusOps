@@ -1,5 +1,6 @@
 using System.Net;
 using System.Reflection;
+using MassTransit;
 using Microsoft.Extensions.Logging.Abstractions;
 using NexusOps.AgentHost.Tools;
 
@@ -30,12 +31,30 @@ public class ToolCancellationTests
             new(handler, disposeHandler: false) { BaseAddress = new Uri("http://stub") };
     }
 
+    /// <summary>Never invoked by these tests — only exists to satisfy <see cref="OrderTools"/>'s constructor.</summary>
+    private sealed class NotUsedClientFactory : IClientFactory
+    {
+        public ClientFactoryContext Context => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(T message, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(Uri destinationAddress, T message, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(ConsumeContext consumeContext, T message, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(ConsumeContext consumeContext, Uri destinationAddress, T message, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(object values, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(Uri destinationAddress, object values, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(ConsumeContext consumeContext, object values, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public RequestHandle<T> CreateRequest<T>(ConsumeContext consumeContext, Uri destinationAddress, object values, CancellationToken cancellationToken = default, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public IRequestClient<T> CreateRequestClient<T>(RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public IRequestClient<T> CreateRequestClient<T>(ConsumeContext consumeContext, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public IRequestClient<T> CreateRequestClient<T>(Uri destinationAddress, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+        public IRequestClient<T> CreateRequestClient<T>(ConsumeContext consumeContext, Uri destinationAddress, RequestTimeout timeout = default) where T : class => throw new NotSupportedException();
+    }
+
     private static (OrderTools Order, InventoryTools Inventory, ProductTools Product, BlockingHandler Handler) Build()
     {
         var handler = new BlockingHandler();
         var factory = new StubFactory(handler);
         return (
-            new OrderTools(factory, NullLogger<OrderTools>.Instance),
+            new OrderTools(factory, new NotUsedClientFactory(), NullLogger<OrderTools>.Instance),
             new InventoryTools(factory, NullLogger<InventoryTools>.Instance),
             new ProductTools(factory, NullLogger<ProductTools>.Instance),
             handler);

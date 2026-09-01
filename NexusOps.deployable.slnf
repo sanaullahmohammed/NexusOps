@@ -9,6 +9,7 @@
       "NexusOps.InventoryService\\NexusOps.InventoryService.csproj",
       "NexusOps.OrderService\\NexusOps.OrderService.csproj",
       "NexusOps.ProductService\\NexusOps.ProductService.csproj",
+      "NexusOps.WorkflowOrchestrator\\NexusOps.WorkflowOrchestrator.csproj",
       "NexusOps.Server\\NexusOps.Server.csproj",
       "NexusOps.Tests\\NexusOps.Tests.csproj"
     ]

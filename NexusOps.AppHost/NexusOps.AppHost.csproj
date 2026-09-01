@@ -14,11 +14,14 @@
     <ProjectReference Include="..\NexusOps.OrderService\NexusOps.OrderService.csproj" />
     <ProjectReference Include="..\NexusOps.InventoryService\NexusOps.InventoryService.csproj" />
     <ProjectReference Include="..\NexusOps.ProductService\NexusOps.ProductService.csproj" />
+    <ProjectReference Include="..\NexusOps.WorkflowOrchestrator\NexusOps.WorkflowOrchestrator.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.5.3" />
     <PackageReference Include="Aspire.Hosting.Redis" Version="13.5.3" />
+    <PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.5.3" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
     <!-- Override transitive MessagePack from KubernetesClient (via Aspire.Dashboard.Sdk) to address GHSA-hv8m-jj95-wg3x -->
     <PackageReference Include="MessagePack" Version="3.1.8" />
   </ItemGroup>

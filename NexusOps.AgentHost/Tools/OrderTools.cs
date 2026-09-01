@@ -1,10 +1,21 @@
+using MassTransit;
 using NexusOps.Contracts.Dtos;
+using NexusOps.Contracts.Messages;
 using System.Net.Http.Json;
 
 namespace NexusOps.AgentHost.Tools;
 
-public sealed class OrderTools(IHttpClientFactory httpClientFactory, ILogger<OrderTools> logger)
+public sealed class OrderTools(
+    IHttpClientFactory httpClientFactory,
+    IClientFactory clientFactory,
+    ILogger<OrderTools> logger)
 {
+    // OrderTools is a singleton (registered once, shared across requests), but MassTransit's
+    // IRequestClient<T> is scoped -- a singleton cannot consume it directly. IClientFactory is
+    // itself singleton-safe and exists precisely to create a request client from a component that
+    // isn't inside a consumer's DI scope (here, an AgentHost tool handler).
+    private static readonly RequestTimeout RootCauseTimeout = RequestTimeout.After(s: 8);
+
     public async Task<ToolResult<OrderAnomaly[]>> InvestigateOrderAnomalyAsync(
         string? status = null,
         CancellationToken cancellationToken = default)
@@ -66,6 +77,40 @@ public sealed class OrderTools(IHttpClientFactory httpClientFactory, ILogger<Ord
         {
             logger.LogError(ex, "Failed to retrieve order details for {OrderId}", orderId);
             return ToolResult<OrderSummary>.Fail("Order service is temporarily unavailable.");
+        }
+    }
+
+    public async Task<ToolResult<RootCauseInvestigationResult>> InvestigateOrderRootCauseAsync(
+        string orderId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var rootCauseClient = clientFactory.CreateRequestClient<InvestigateOrderRootCause>(RootCauseTimeout);
+            var response = await rootCauseClient.GetResponse<RootCauseInvestigationResult>(
+                new InvestigateOrderRootCause(orderId), cancellationToken);
+
+            var result = response.Message;
+
+            return result.Completeness == InvestigationCompleteness.Failed
+                ? ToolResult<RootCauseInvestigationResult>.Fail(
+                    $"The investigation for order {orderId} could not be completed: the order service did not respond.")
+                : ToolResult<RootCauseInvestigationResult>.Ok(result);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RequestTimeoutException)
+        {
+            logger.LogWarning("Root-cause investigation for {OrderId} timed out waiting for the saga", orderId);
+            return ToolResult<RootCauseInvestigationResult>.Fail(
+                $"The investigation for order {orderId} timed out before a result was available.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to investigate root cause for {OrderId}", orderId);
+            return ToolResult<RootCauseInvestigationResult>.Fail("The workflow orchestrator is temporarily unavailable.");
         }
     }
 }

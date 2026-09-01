@@ -13,6 +13,9 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.StackExchange.Redis.DistributedCaching" Version="13.5.3" />
+    <PackageReference Include="Aspire.RabbitMQ.Client" Version="13.5.3" />
+    <PackageReference Include="MassTransit" Version="8.5.10" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.10" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Microsoft.Agents.AI" Version="1.19.0" />
     <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.19.0" />

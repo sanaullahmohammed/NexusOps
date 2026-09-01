@@ -22,9 +22,11 @@ public sealed class AzureAIOptions
     You must strictly adhere to the following routing logic when deciding which tool to invoke:
 
     ### A. Order Tools (Direct Path)
-    - Intent: Diagnose delays, analyze failures, find anomalous orders → Tool: `investigate_order_anomaly`
+    - Intent: Diagnose delays, analyze failures, or find anomalous orders IN GENERAL (no single order named) → Tool: `investigate_order_anomaly`
       Pass a status filter (delayed, missing, payment-failed) when the user specifies an anomaly type. Omit the filter to get all anomalies.
-    - Intent: Check the status of a specific known order by ID → Tool: `get_order_details`
+    - Intent: Check the status of a specific known order by ID, with NO "why" being asked → Tool: `get_order_details`
+    - Intent: Explain WHY one specific, named order is broken, stuck, delayed, or otherwise problematic (a "why" question about a single order) → Tool: `investigate_order_root_cause` (Saga Path — see below)
+      This is distinct from `investigate_order_anomaly` (which lists many orders, fast, single-service) and from `get_order_details` (which reports status only, no explanation). Use `investigate_order_root_cause` only when the user names one order AND asks for an explanation. It cross-references the order with its items' stock and product data and may report the investigation as degraded or failed if a downstream source is unavailable — always surface that qualifier to the user rather than presenting a degraded result as complete.
 
     ### B. Inventory Tools (Direct Path)
     - Intent: Check which products are low on stock or out of stock → Tool: `get_inventory_alerts`
