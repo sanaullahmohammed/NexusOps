@@ -23,7 +23,7 @@ The durable record backing FR-008/FR-009/FR-010. One row per investigation. Owne
 | `ProductResultJson` | `string?` | Serialized `ProductDetail[]` once `ProductFinding` is not `Pending`. |
 | `StartedAt` | `DateTimeOffset` | Set on creation. |
 | `CompletedAt` | `DateTimeOffset?` | Set when the saga finalizes (all three findings recorded). |
-| `RowVersion` | `byte[]` | EF Core concurrency token, mapped to Postgres `xmin` (`.IsRowVersion()`). Enforces FR-009. |
+| `RowVersion` | `uint` | EF Core concurrency token; Npgsql maps a `uint` marked `.IsRowVersion()` onto Postgres's `xmin` system column directly. Enforces FR-009. |
 
 **`SourceFindingStatus` enum**: `Pending`, `Succeeded`, `NotFound`, `Unavailable`, `TimedOut` — mirrors the Key Entities' "Source Finding" status vocabulary from `spec.md` exactly.
 

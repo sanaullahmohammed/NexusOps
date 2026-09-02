@@ -12,7 +12,7 @@ These contracts are internal to the orchestration layer — no external caller (
 
 | Message | Direction | Delivery |
 |---|---|---|
-| `InvestigateOrderRootCause { OrderId }` | AgentHost → `OrderInvestigationSaga` | MassTransit request (`IRequestClient`), 8s timeout |
+| `InvestigateOrderRootCause { OrderId }` | AgentHost → `OrderInvestigationSaga` | MassTransit request (`IRequestClient`), 12s timeout — must exceed the fan-out's own worst case (order 5s + max(inventory 5s, product 5s) = 10s), not just a single leg's timeout |
 | `RootCauseInvestigationResult { ... }` | `OrderInvestigationSaga` → AgentHost | Sent to the captured `ResponseAddress`/`RequestId` (Decision 2) — **not** `RespondAsync`, since the saga responds from a later, unrelated consume context |
 
 ## Leg 2 — Saga → Fan-Out Coordinator (internal)
