@@ -14,8 +14,9 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        var connectionString = builder.Configuration.GetConnectionString("rabbitmq");
-        cfg.Host(new Uri(connectionString!));
+        var connectionString = builder.Configuration.GetConnectionString("rabbitmq")
+            ?? throw new InvalidOperationException("Missing required configuration: ConnectionStrings:rabbitmq");
+        cfg.Host(new Uri(connectionString));
 
         // Retry a transient failure (including a saga optimistic-concurrency conflict, which
         // surfaces as a DbUpdateConcurrencyException from the EF Core repository) a few times
@@ -36,6 +37,8 @@ using (var scope = app.Services.CreateScope())
     await scope.ServiceProvider.GetRequiredService<OrderInvestigationDbContext>().Database.MigrateAsync();
 }
 
-app.MapDefaultEndpoints();
+// Unlike AgentHost and the domain services, this host structurally cannot do anything without the
+// bus, so its readiness is supposed to reflect bus connectivity (research.md Decision 7).
+app.MapDefaultEndpoints(includeMassTransitInReadiness: true);
 
 app.Run();

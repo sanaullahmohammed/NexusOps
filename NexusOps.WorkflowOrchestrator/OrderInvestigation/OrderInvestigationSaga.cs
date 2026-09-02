@@ -88,6 +88,18 @@ public sealed class OrderInvestigationSaga : MassTransitStateMachine<OrderInvest
                         : null;
                 })
                 .ThenAsync(context => FinalizeIfCompleteAsync(context)));
+
+        // A finding can still arrive after finalization -- e.g. InvestigationFanOutConsumer's
+        // BeginInvestigationFanOut message is redelivered (broker blip, pod eviction) after the
+        // saga already finalized from the first attempt's findings, and the rerun's findings land
+        // on a saga instance that still exists. Without this, MassTransit's default unhandled-event
+        // behavior faults the event instead of the silent discard research.md Decision 1 relies on
+        // for restart survival. OnMissingInstance(Discard) above only covers a since-removed
+        // instance; this covers one that is very much still here, just done.
+        During(Completed, Failed,
+            Ignore(OrderReported),
+            Ignore(InventoryReported),
+            Ignore(ProductReported));
     }
 
     private async Task FinalizeIfCompleteAsync<TData>(BehaviorContext<OrderInvestigationSagaState, TData> context)

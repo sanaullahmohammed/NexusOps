@@ -166,6 +166,36 @@ public sealed class OrderInvestigationSagaTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task FindingAfterFinalization_IsIgnoredWithoutFaulting()
+    {
+        // Regression test for a redelivered BeginInvestigationFanOut: if the fan-out consumer's
+        // message is redelivered after the saga already finalized from the first attempt's
+        // findings, the rerun's findings land on a saga instance that still exists (as opposed to
+        // FindingForUnknownCorrelationId_IsDiscardedWithoutFaulting's since-removed case). Before
+        // the During(Completed, Failed, Ignore(...)) fix, this hit MassTransit's default
+        // unhandled-event behavior and faulted instead of being silently discarded (FR-011).
+        await _harness.Start();
+
+        var (correlationId, responseTask) = await StartInvestigationAsync("ORD-0003");
+
+        await _harness.Bus.Publish(new OrderFindingReported(correlationId, SourceFindingStatus.Succeeded, SampleOrder));
+        await _harness.Bus.Publish(new InventoryFindingReported(correlationId, SourceFindingStatus.Succeeded, SampleLevels, []));
+        await _harness.Bus.Publish(new ProductFindingReported(correlationId, SourceFindingStatus.Succeeded, SampleProducts, []));
+
+        var completedId = await _sagaHarness.Exists(correlationId, _sagaHarness.StateMachine.Completed, TimeSpan.FromSeconds(5));
+        Assert.NotNull(completedId);
+        await responseTask;
+
+        await _harness.Bus.Publish(new InventoryFindingReported(correlationId, SourceFindingStatus.Succeeded, SampleLevels, []));
+
+        Assert.True(await _harness.Consumed.Any<InventoryFindingReported>(x => x.Context.Message.CorrelationId == correlationId));
+        Assert.False(await _harness.Published.Any<Fault<InventoryFindingReported>>());
+
+        var stillCompleted = await _sagaHarness.Exists(correlationId, _sagaHarness.StateMachine.Completed, TimeSpan.FromSeconds(1));
+        Assert.NotNull(stillCompleted);
+    }
+
+    [Fact]
     public async Task ConcurrentFindings_ForTheSameInvestigation_NeitherUpdateIsLost()
     {
         await _harness.Start();

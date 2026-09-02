@@ -75,8 +75,22 @@ public static class Extensions
         return builder;
     }
 
-    public static WebApplication MapDefaultEndpoints(this WebApplication app)
+    /// <param name="includeMassTransitInReadiness">
+    /// MassTransit auto-registers a bus health check ("masstransit-bus", tagged "ready" and
+    /// "masstransit") the moment a service calls <c>AddMassTransit</c>. For AgentHost and the
+    /// domain services, the bus is one of several capabilities, not the reason they exist — their
+    /// Direct-path HTTP endpoints work fine with the broker down, so a broker blip must not pull
+    /// them out of rotation, exactly the reasoning CLAUDE.md already applies to the Redis
+    /// conversation store. Default <c>false</c> excludes the "masstransit" tag from readiness.
+    /// NexusOps.WorkflowOrchestrator passes <c>true</c>: it structurally cannot do anything without
+    /// the bus, so its readiness is supposed to reflect that (research.md Decision 7).
+    /// </param>
+    public static WebApplication MapDefaultEndpoints(this WebApplication app, bool includeMassTransitInReadiness = false)
     {
+        var isReady = includeMassTransitInReadiness
+            ? (Func<HealthCheckRegistration, bool>)(r => r.Tags.Contains("ready"))
+            : r => r.Tags.Contains("ready") && !r.Tags.Contains("masstransit");
+
         // Readiness is mapped in every environment. Exposing health endpoints publicly does carry
         // the security implications the Aspire template warns about
         // (https://aka.ms/dotnet/aspire/healthchecks), but the AppHost probes this path and WaitFors
@@ -84,7 +98,7 @@ public static class Extensions
         // ever reach a healthy state. The endpoint stays; restrict reachability at the ingress.
         app.MapHealthChecks(HealthEndpointPath, new HealthCheckOptions
         {
-            Predicate = r => r.Tags.Contains("ready"),
+            Predicate = isReady,
             ResponseWriter = WriteHealthResponse
         });
 

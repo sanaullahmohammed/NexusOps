@@ -7,14 +7,19 @@ namespace NexusOps.AgentHost.Tools;
 
 public sealed class OrderTools(
     IHttpClientFactory httpClientFactory,
-    IClientFactory clientFactory,
-    ILogger<OrderTools> logger)
-{
     // OrderTools is a singleton (registered once, shared across requests), but MassTransit's
     // IRequestClient<T> is scoped -- a singleton cannot consume it directly. IClientFactory is
     // itself singleton-safe and exists precisely to create a request client from a component that
     // isn't inside a consumer's DI scope (here, an AgentHost tool handler).
-    private static readonly RequestTimeout RootCauseTimeout = RequestTimeout.After(s: 8);
+    IClientFactory clientFactory,
+    ILogger<OrderTools> logger)
+{
+    // InvestigationFanOutConsumer's own per-source timeout is 5s (order lookup, then inventory and
+    // product in parallel) -- worst case that's 5s + 5s = 10s if the order lookup itself is slow and
+    // one of the parallel legs also times out. This must exceed that worst case, not just the 5s
+    // single-leg figure: an 8s client timeout would let the caller see "investigation timed out"
+    // for a case the saga was about to answer correctly with a Degraded result.
+    private static readonly RequestTimeout RootCauseTimeout = RequestTimeout.After(s: 12);
 
     public async Task<ToolResult<OrderAnomaly[]>> InvestigateOrderAnomalyAsync(
         string? status = null,

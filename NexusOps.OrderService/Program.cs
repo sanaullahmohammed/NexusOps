@@ -18,8 +18,9 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        var connectionString = builder.Configuration.GetConnectionString("rabbitmq");
-        cfg.Host(new Uri(connectionString!));
+        var connectionString = builder.Configuration.GetConnectionString("rabbitmq")
+            ?? throw new InvalidOperationException("Missing required configuration: ConnectionStrings:rabbitmq");
+        cfg.Host(new Uri(connectionString));
         cfg.ConfigureEndpoints(context);
     });
 });
