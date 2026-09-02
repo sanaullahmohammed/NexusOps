@@ -30,6 +30,11 @@ public static class ToolHandlerExtensions
                     ToolNames.GetOrderDetailsDescription),
 
                 AIFunctionFactory.Create(
+                    orderTools.InvestigateOrderRootCauseAsync,
+                    ToolNames.InvestigateOrderRootCause,
+                    ToolNames.InvestigateOrderRootCauseDescription),
+
+                AIFunctionFactory.Create(
                     inventoryTools.GetInventoryAlertsAsync,
                     ToolNames.GetInventoryAlerts,
                     ToolNames.GetInventoryAlertsDescription),

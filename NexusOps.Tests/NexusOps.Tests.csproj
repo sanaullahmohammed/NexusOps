@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="10.0.1" />
+    <PackageReference Include="MassTransit.TestFramework" Version="8.5.10" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -19,6 +20,7 @@
     <ProjectReference Include="..\NexusOps.AgentHost\NexusOps.AgentHost.csproj" />
     <ProjectReference Include="..\NexusOps.Contracts\NexusOps.Contracts.csproj" />
     <ProjectReference Include="..\NexusOps.OrderService\NexusOps.OrderService.csproj" />
+    <ProjectReference Include="..\NexusOps.WorkflowOrchestrator\NexusOps.WorkflowOrchestrator.csproj" />
   </ItemGroup>
 
   <ItemGroup>

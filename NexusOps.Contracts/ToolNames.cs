@@ -33,4 +33,13 @@ public static class ToolNames
     public const string ListProductsByCategoryDescription =
         "List products filtered by category (Electronics, Apparel, or Home & Garden), or all products when no category is specified. " +
         "Use when the user asks to browse or list products, either all products or within a specific category.";
+
+    public const string InvestigateOrderRootCause = "investigate_order_root_cause";
+    public const string InvestigateOrderRootCauseDescription =
+        "Investigate why a specific order is broken by cross-referencing the order, its items' stock levels, and their " +
+        "product details. Use when the operator asks *why* one named order is delayed, missing, failing, or otherwise " +
+        "problematic — not for listing anomalous orders in general, and not for a plain status check with no 'why'. " +
+        "Pass the order ID (e.g., ORD-0001). May return a degraded or failed result if a downstream source is unavailable. " +
+        "If the order finding comes back NotFound, tell the operator the order does not exist — this is a completed, " +
+        "trustworthy result (not a degraded or failed one), distinct from a source being unavailable.";
 }

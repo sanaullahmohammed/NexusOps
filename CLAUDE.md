@@ -2,7 +2,7 @@
 
 <!-- SPECKIT START -->
 
-**Active Feature Plan**: [specs/004-docs-honesty-pass/plan.md](specs/004-docs-honesty-pass/plan.md)
+**Active Feature Plan**: [specs/005-workflow-orchestrator/plan.md](specs/005-workflow-orchestrator/plan.md)
 
 ## Project Overview
 
@@ -18,8 +18,8 @@ Every request follows one of two paths, chosen by the AI agent:
 - **Saga Path** — Agent Host publishes a command to RabbitMQ. A MassTransit saga coordinates durable multi-service work, gates side effects behind human approval, and handles compensation.
 
 Two saga designs:
-- `OrderInvestigationSaga` — fans out reads across Order, Inventory, and Product services in parallel, returns partial results on degradation.
-- `OrderActionSaga` — state-mutating operations (refund, cancel, notify) with a mandatory human approval gate before execution.
+- `OrderInvestigationSaga` — fans out reads across Order, Inventory, and Product services in parallel, returns partial results on degradation. **Implemented** (feature 005).
+- `OrderActionSaga` — state-mutating operations (refund, cancel, notify) with a mandatory human approval gate before execution. **Planned** (feature 006).
 
 ## Repository Structure
 
@@ -31,6 +31,7 @@ NexusOps.Contracts/        # Shared library — ToolResult<T>, ToolNames, SeedDa
 NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations, in-memory seed data
 NexusOps.InventoryService/ # ASP.NET Core Minimal API — inventory read operations, in-memory seed data
 NexusOps.ProductService/   # ASP.NET Core Minimal API — product read operations, in-memory seed data
+NexusOps.WorkflowOrchestrator/ # MassTransit v8 + RabbitMQ saga host — OrderInvestigationSaga, PostgreSQL/EF Core state
 NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
 NexusOps.Tests/            # xUnit — unit tests across anomalies, sessions, and tool cancellation
 frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
@@ -48,8 +49,8 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 | App Orchestration | .NET Aspire |
 | Agent Host | ASP.NET Core Minimal APIs |
 | Session Store | Redis via `IDistributedCache` (Aspire-managed) |
-| Durable Orchestration | MassTransit + RabbitMQ (planned) |
-| Saga Persistence | PostgreSQL + EF Core (planned) |
+| Durable Orchestration | MassTransit v8 + RabbitMQ |
+| Saga Persistence | PostgreSQL + EF Core |
 | Frontend | React 19 + Vite + TypeScript |
 | Notification Service | Node.js + Express + TypeScript + amqplib (planned) |
 | Observability | OpenTelemetry via `NexusOps.ServiceDefaults` (shared class library) |
@@ -57,7 +58,9 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 ## Current Build State
 
 **Implemented:**
-- Aspire AppHost wires up AgentHost, Server, all three domain services, and Redis with health checks and service discovery
+- Aspire AppHost wires up AgentHost, Server, all three domain services, WorkflowOrchestrator, Redis, RabbitMQ, and PostgreSQL with health checks and service discovery
+- **NexusOps.WorkflowOrchestrator** (feature 005): new MassTransit v8 host running `OrderInvestigationSaga`, a `MassTransitStateMachine` persisted in PostgreSQL via EF Core with optimistic concurrency (`RowVersion` mapped to Postgres `xmin`). Order-specific code lives entirely in `NexusOps.WorkflowOrchestrator/OrderInvestigation/`, registered into the domain-agnostic host via a single `AddOrderInvestigationSaga(...)` call — deleting that folder and call leaves the host compiling and running with no domain knowledge. A separate `InvestigationFanOutConsumer` (not the saga itself) fans out three parallel/sequenced MassTransit request/response calls to new consumers in Order/Inventory/Product services (`RequestOrderFindingConsumer`, `RequestInventoryFindingConsumer`, `RequestProductFindingConsumer`), each bounded by its own 5s timeout; the saga reacts to the resulting `*FindingReported` events, finalizing as `Complete`, `Degraded` (naming which source is unavailable/timed out), or `Failed` (only when the order itself can't be identified). No approval gate — this saga is read-only
+- New Saga-path tool `investigate_order_root_cause` (alongside the unchanged Direct-path `investigate_order_anomaly`): AgentHost holds a MassTransit `IRequestClient<InvestigateOrderRootCause>`; the saga responds by resolving the request's captured `ResponseAddress`/`RequestId` rather than `RespondAsync`, since it finalizes from a different consume context than the one that started it. Agent routing instructions now distinguish three shapes: broad anomaly listing, a specific order's plain status, and a specific order's cross-service "why" investigation. Verified live end-to-end with real Azure AI credentials, real RabbitMQ, and real PostgreSQL: a healthy investigation correctly cites the causing SKU's stockout; killing a domain service mid-investigation correctly returns a `Degraded` result naming the unavailable source rather than hanging or erroring; all three routing shapes select the correct tool
 - AgentHost: Azure AI Foundry agent wired via `AzureOpenAIClient` → `AIAgent`, session-aware `POST /api/chat` endpoint
 - **Session Management** (feature #2, corrected by feature #3): Redis-backed conversation history on `POST /api/chat`; client supplies optional `sessionId`, server mints a new UUID v4 if absent; history loaded/saved per request; 30-min sliding TTL; 20-turn cap (oldest-first trim); structured lifecycle logging (`session.created`, `session.history_loaded`, `session.history_saved`, `session.degraded`) with a single hashed session token shared by all emitters. The store reports `Found`/`Missing`/`Unavailable`: a missing session mints a replacement, an unreachable store **preserves the caller's `sessionId`** and runs the turn statelessly. A blank prompt returns 400; an agent failure returns 500 carrying the `sessionId` the user turn was persisted under
 - **NexusOps.Contracts**: Shared library with `ToolResult<T>`, `ToolNames`, `SeedDataConstants`, and all response DTOs
@@ -72,7 +75,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 - Health endpoints: `/health` is mapped in **all** environments across every service and returns `{"status":"healthy"}` as JSON; `/alive` remains Development-only. AgentHost's `/health` reports only checks tagged `ready` — the Redis check is deliberately excluded, because the service is designed to keep serving when the store is unreachable, and failing readiness for it would remove the pod from rotation exactly when it can still answer
 
 **Planned (from roadmap):**
-- Workflow Orchestrator: MassTransit sagas, PostgreSQL state
+- `OrderActionSaga`: refund/cancel/notify with a mandatory human approval gate (feature 006)
 - Notification Service: Node.js/TypeScript
 - React chat UI (replacing scaffold)
 - Evaluation dataset + runner
@@ -90,7 +93,7 @@ frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold 
 dotnet run --project NexusOps.AppHost
 ```
 
-Aspire starts all services and Redis. The developer dashboard opens automatically with distributed tracing, logs, and metrics.
+Aspire starts all services, Redis, RabbitMQ, and PostgreSQL. The developer dashboard opens automatically with distributed tracing, logs, and metrics.
 
 ```bash
 # Send a chat request (new session — server mints a sessionId)
