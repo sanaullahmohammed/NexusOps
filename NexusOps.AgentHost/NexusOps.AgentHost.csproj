@@ -22,7 +22,7 @@
     <PackageReference Include="Scalar.AspNetCore" Version="2.17.2" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
     <!-- Override transitive Microsoft.OpenApi 2.0.0 from Microsoft.AspNetCore.OpenApi to address GHSA-v5pm-xwqc-g5wc -->
-    <PackageReference Include="Microsoft.OpenApi" Version="2.12.2" />
+    <PackageReference Include="Microsoft.OpenApi" Version="3.10.2" />
   </ItemGroup>
 
   <ItemGroup>
