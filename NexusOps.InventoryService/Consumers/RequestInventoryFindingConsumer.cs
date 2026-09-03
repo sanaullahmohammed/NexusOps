@@ -10,7 +10,7 @@ namespace NexusOps.InventoryService.Consumers;
 /// with no inventory record doesn't fail the whole source — it's reported in <c>SkusNotFound</c>
 /// (spec.md Edge Cases).
 /// </summary>
-public sealed class RequestInventoryFindingConsumer : IConsumer<RequestInventoryFinding>
+public sealed class RequestInventoryFindingConsumer(InventoryMutationOverlay overlay) : IConsumer<RequestInventoryFinding>
 {
     public Task Consume(ConsumeContext<RequestInventoryFinding> context)
     {
@@ -27,6 +27,8 @@ public sealed class RequestInventoryFindingConsumer : IConsumer<RequestInventory
                 notFound.Add(sku);
                 continue;
             }
+
+            record = record.ApplyOverlay(overlay);
 
             levels.Add(new InventoryLevel(
                 Sku: record.Sku,

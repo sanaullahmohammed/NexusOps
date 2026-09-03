@@ -34,6 +34,16 @@ var workflowOrchestrator = builder.AddProject<Projects.NexusOps_WorkflowOrchestr
     .WaitFor(rabbitmq)
     .WaitFor(workflowOrchestratorDb);
 
+// Minimal Node.js/TypeScript/amqplib consumer (feature 006) — logs a simulated email for every
+// OrderActionSaga terminal outcome. No build step: Node 24's native TypeScript support runs
+// src/index.ts directly (research.md Decision 10).
+var notificationService = builder.AddNodeApp("notification-service", "../notification-service", "src/index.ts")
+    .WithNpm()
+    .WithHttpEndpoint(env: "PORT")
+    .WithHttpHealthCheck("/health")
+    .WithReference(rabbitmq)
+    .WaitFor(rabbitmq);
+
 var agentHost = builder.AddProject<Projects.NexusOps_AgentHost>("agent-host")
     .WithHttpHealthCheck("/health")
     .WithExternalHttpEndpoints()

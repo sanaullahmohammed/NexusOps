@@ -7,7 +7,8 @@ public sealed record OrderSummary(
     decimal TotalAmount,
     DateOnly ExpectedDelivery,
     DateOnly? ActualDelivery,
-    OrderLineItem[] LineItems);
+    OrderLineItem[] LineItems,
+    decimal? RefundedAmount = null);
 
 public sealed record OrderLineItem(
     string Sku,

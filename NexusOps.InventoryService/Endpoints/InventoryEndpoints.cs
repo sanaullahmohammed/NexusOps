@@ -7,9 +7,10 @@ public static class InventoryEndpoints
 {
     public static WebApplication MapInventoryEndpoints(this WebApplication app)
     {
-        app.MapGet("/inventory/alerts", (bool? outOfStockOnly) =>
+        app.MapGet("/inventory/alerts", (bool? outOfStockOnly, InventoryMutationOverlay overlay) =>
         {
             var alerts = InventoryStore.Records
+                .Select(r => r.ApplyOverlay(overlay))
                 .Where(r => outOfStockOnly == true
                     ? r.QuantityOnHand == 0
                     : r.QuantityOnHand <= r.ReorderThreshold)
@@ -25,7 +26,7 @@ public static class InventoryEndpoints
             return Results.Ok(alerts);
         });
 
-        app.MapGet("/inventory/{sku}", (string sku) =>
+        app.MapGet("/inventory/{sku}", (string sku, InventoryMutationOverlay overlay) =>
         {
             var record = InventoryStore.Records.FirstOrDefault(r =>
                 string.Equals(r.Sku, sku, StringComparison.OrdinalIgnoreCase));
@@ -34,6 +35,8 @@ public static class InventoryEndpoints
             {
                 return Results.NotFound($"Inventory record for SKU {sku} not found.");
             }
+
+            record = record.ApplyOverlay(overlay);
 
             var level = new InventoryLevel(
                 Sku: record.Sku,

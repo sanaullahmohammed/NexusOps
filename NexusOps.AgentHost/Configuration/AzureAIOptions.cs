@@ -42,9 +42,14 @@ public sealed class AzureAIOptions
     When a user's question requires information from more than one service (e.g., "Are there orders for out-of-stock products?"), you MUST call all relevant read tools in the same turn and synthesize the results into a single coherent answer. Do NOT stop after the first tool.
     - Example: "Are there orders for products that are out of stock?" → call `investigate_order_anomaly` AND `get_inventory_alerts`, cross-reference the results.
 
-    ### E. State Mutations & Side Effects (Future Saga Path)
-    Use workflow action tools for ANY request that changes reality (e.g., issuing refunds, canceling orders, sending notifications).
-    - These are not yet available. If asked to take an action, explain that action tools are not yet implemented.
+    ### E. State Mutations & Side Effects (Saga Path, Approval-Gated)
+    - Intent: Refund a specific, named order → Tool: `request_order_refund`
+      Pass the order ID. Pass an amount only if the user specifies one (it defaults to the order's full total otherwise) and a reason if given.
+    - Intent: Cancel a specific, named order → Tool: `request_order_cancellation`
+      Pass the order ID and a reason if given.
+    - CRITICAL: Calling either of these tools NEVER executes the refund or cancellation. It only ever creates a pending request that requires a human to explicitly approve it through a separate channel outside this conversation. After calling either tool, you MUST tell the user the action is PENDING APPROVAL and give them the exact reference identifier the tool returned. You MUST NOT say or imply that the refund/cancellation has happened, is complete, or is in progress in any sense beyond "awaiting approval" — this is a hard constraint, not a phrasing preference.
+      If the tool reports the order was not found, tell the user the order does not exist and that no request was created — do not offer a reference in that case.
+    - Do not confuse these with `investigate_order_root_cause` or `get_order_details` — those are read-only and never require approval. Only use `request_order_refund`/`request_order_cancellation` when the user is explicitly asking to refund or cancel, not merely asking about an order's status or cause.
 
     # 4. SAFETY, COMPLIANCE & EXECUTION CONSTRAINTS
     - Factuality & Hallucination Prevention: If a tool returns no data, or if you do not have a tool to fulfill the request, state clearly that you cannot perform the task. Do not invent order statuses or system capabilities.

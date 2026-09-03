@@ -8,7 +8,8 @@ public enum OrderStatus
     Shipped,
     Delivered,
     Delayed,
-    Cancelled
+    Cancelled,
+    Refunded
 }
 
 /// <summary>
@@ -47,4 +48,26 @@ public sealed class Order
     /// this field; it never derives a classification from the request that asked for it.
     /// </summary>
     public AnomalyReason? AnomalyReason { get; init; }
+
+    /// <summary>The amount actually refunded, set only when <see cref="Status"/> is <see cref="OrderStatus.Refunded"/>.</summary>
+    public decimal? RefundedAmount { get; init; }
+
+    /// <summary>
+    /// Returns a copy of this order with <see cref="Status"/> (and, for a refund, the amount
+    /// actually applied) replaced. <paramref name="refundedAmount"/> defaults to the current value
+    /// so callers that only care about status (cancellation, compensation) don't need to restate it.
+    /// </summary>
+    public Order WithStatus(OrderStatus newStatus, decimal? refundedAmount = null) => new()
+    {
+        OrderId = OrderId,
+        CustomerId = CustomerId,
+        Status = newStatus,
+        TotalAmount = TotalAmount,
+        ExpectedDelivery = ExpectedDelivery,
+        ActualDelivery = ActualDelivery,
+        LineItems = LineItems,
+        CreatedAt = CreatedAt,
+        AnomalyReason = AnomalyReason,
+        RefundedAmount = refundedAmount ?? RefundedAmount
+    };
 }

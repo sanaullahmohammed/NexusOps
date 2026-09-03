@@ -6,4 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Lightweight — no transport/broker dependency. Used only for the [EntityName] attribute
+         that pins NotificationRequested's RabbitMQ exchange name for the Node.js consumer
+         (research.md Decision 9). Pinned to the same 8.5.x line as every other MassTransit* package. -->
+    <PackageReference Include="MassTransit.Abstractions" Version="8.5.10" />
+  </ItemGroup>
+
 </Project>
