@@ -11,7 +11,7 @@ Ships with an **E-Commerce Operations** sample domain. The same orchestration co
 NexusOps is a proof-of-concept that translates patterns from fintech operations engineering into agentic-AI workflow design. Three patterns carry over directly:
 
 - **Multi-source aggregation → investigation fan-out.** Reconciling an incident across trading, settlement, and reference-data systems maps to `OrderInvestigationSaga` fanning out reads across Order, Inventory, and Product services in parallel and returning partial results under degradation.
-- **Maker-checker approval → the human approval gate.** Financial operations rarely let one actor both propose and execute a state-changing action. `OrderActionSaga` encodes the same discipline: any mutation (refund, cancel, notify) pauses in an `AwaitingApproval` state until a human approves it.
+- **Maker-checker approval → the human approval gate.** Financial operations rarely let one actor both propose and execute a state-changing action. `OrderActionSaga` encodes the same discipline: any mutation (refund, cancel) pauses in an `AwaitingApproval` state until a human approves it — the notification that reports the outcome afterward is not itself gated (see [Key Design Decisions](#key-design-decisions)).
 - **Compensation on partial failure → saga compensation.** Reversing a partially-applied write when a downstream leg fails is the same shape whether the leg is a trade settlement or a refund whose confirmation notification never sent.
 
 The AI agent supplies the natural-language front end; the saga orchestrator supplies the durability guarantees an operations team would expect from any system that touches money or inventory. Curated tools stand in for a governed API surface — the agent gets named capabilities, never raw database or endpoint access.
@@ -24,8 +24,9 @@ The AI agent supplies the natural-language front end; the saga orchestrator supp
 graph TD
     %% Define Nodes
     Foundry[Azure AI Foundry<br/><i>LLM Inference, Eval, Tracing</i>]
-    Client([Client])
-    
+    Client([API Client<br/><i>curl / future chat UI</i>])
+    Redis[(Redis<br/>session cache)]
+
     subgraph Host [Agent Host]
         AH[ASP.NET Core + Agent Framework]
         AH_D[• Session & context management<br/>• Tool selection & reasoning<br/>• Middleware redaction, telemetry]
@@ -48,9 +49,16 @@ graph TD
 
     Notify[Notification Service<br/><i>Node.js/TS</i>]
 
+    subgraph Scaffold [Scaffold — Server does not yet call Agent Host]
+        WebUI([Browser])
+        FE[Frontend<br/><i>React + Vite</i>]
+        Server[NexusOps.Server<br/><i>ASP.NET Core BFF</i>]
+    end
+
     %% Connections
     Foundry <==> |HTTPS| AH
     Client <==> |HTTP| AH
+    AH <==> |Session cache| Redis
 
     AH ==> |Direct Tools HTTP| Prod
     AH ==> |Direct Tools HTTP| Order
@@ -66,11 +74,18 @@ graph TD
     MT ==> |AMQP| Inv
     MT ==> |AMQP| Notify
 
+    %% Scaffold — Server serves the built frontend today (dev proxy + published static files);
+    %% it does not yet call Agent Host
+    WebUI --> FE
+    FE <==> |dev proxy / serves built files| Server
+    Server -.-> |planned| AH
+
     %% Styles
     style AH fill:#2d3436,color:#fff,stroke:#fff
     style Foundry fill:#0984e3,color:#fff,stroke:#74b9ff
     style RMQ fill:#e67e22,color:#fff,stroke:#d35400
     style MT fill:#2d3436,color:#fff,stroke:#fff
+    style Redis fill:#c0392b,color:#fff,stroke:#e74c3c
 ```
 
 ### Two Communication Paths
@@ -119,10 +134,10 @@ The sample domain simulates the backend systems of an e-commerce platform. A use
 
 | Query | Path |
 |---|---|
-| "Show me recent orders for customer Alice" | Direct → Order Service |
-| "What's the current stock for wireless headphones?" | Direct → Inventory Service |
-| "Why was order #4521 delayed?" | Saga → OrderInvestigationSaga fans out to Order + Inventory + Product services |
-| "Refund order #4521 and notify the customer" | Saga → OrderActionSaga with approval gate |
+| "What's the status of order ORD-0001?" | Direct → Order Service |
+| "What's the current stock for SKU-ELEC-001?" | Direct → Inventory Service |
+| "Why was order ORD-0001 delayed?" | Saga → OrderInvestigationSaga fans out to Order + Inventory + Product services |
+| "Refund order ORD-0004" | Saga → OrderActionSaga with approval gate |
 
 ---
 
@@ -208,7 +223,7 @@ curl -X POST http://localhost:<port>/api/chat \
 
 **Curated tools over raw Swagger.** The LLM sees high-level tools like `investigate_order_anomaly` instead of `GET /orders?status=delayed`. Better tool selection, simpler prompts, safer boundaries.
 
-**Side effects require approval.** Any operation that changes real-world state (refund, notification) goes through the OrderActionSaga with a human approval gate. Read operations auto-execute.
+**Side effects require approval.** Any operation that changes real-world state (refund, cancellation) goes through the OrderActionSaga with a human approval gate. Read operations auto-execute. (The saga's terminal-outcome notification is published unconditionally, not itself gated — see CLAUDE.md's "Flagged: Constitution Tensions.")
 
 **Saga communication over AMQP.** When sagas dispatch work to domain services, commands flow over RabbitMQ — not HTTP. Full delivery guarantees, retry, and dead-letter handling.
 
@@ -230,6 +245,7 @@ NexusOps.WorkflowOrchestrator/ # MassTransit v8 + RabbitMQ saga host — OrderIn
 NexusOps.Evaluation/       # Dependency-light console project — evaluates AgentHost's tool-routing accuracy against a checked-in dataset
 NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
 NexusOps.Tests/            # xUnit — unit tests across anomalies, sessions, tool cancellation, both sagas, and the evaluation runner
+NexusOps.IntegrationTests/ # xUnit + Aspire.Hosting.Testing — both sagas end-to-end over the real message bus
 notification-service/      # Node.js + TypeScript + amqplib — logs a simulated email per OrderActionSaga terminal outcome
 frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
 .specify/                  # Spec-kit configuration, templates, memory, extensions
@@ -273,6 +289,7 @@ Parks in `AwaitingApproval` until a human calls `POST /api/approvals/{id}/approv
 ```bash
 dotnet test NexusOps.deployable.slnf          # unit tests
 cd frontend && npm run lint && npm run typecheck
+cd notification-service && npm run typecheck
 ```
 
 `NexusOps.Tests` covers anomaly classification and severity, order seed integrity, session
@@ -283,8 +300,19 @@ extraction. It is unit-level by design — a fake `IDistributedCache`, a pinned 
 MassTransit's in-memory test harness, with no Redis, RabbitMQ, Postgres, or Azure AI dependency — so
 it runs on fork pull requests without secrets.
 
-Both commands run in CI on every push and pull request to `master`, alongside the credential-free
-evaluation-dataset check described below.
+`NexusOps.IntegrationTests` exercises both sagas end-to-end over a real, Docker-provisioned RabbitMQ
+and PostgreSQL via `Aspire.Hosting.Testing` — never through AgentHost's HTTP/LLM layer, so it needs no
+Azure AI credentials, but it does need Docker running locally:
+
+```bash
+dotnet test NexusOps.IntegrationTests/NexusOps.IntegrationTests.csproj
+```
+
+`ci.yml` runs four jobs: `dotnet` (build, unit test, validate the evaluation dataset, and
+compile-only build `NexusOps.IntegrationTests`) and `frontend`/`notification-service` (lint/typecheck)
+on every push and pull request to `master`; a fourth job, `integration-tests`, actually runs the
+Docker-dependent integration suite above but only on `push` to `master`, never on a pull request, so a
+slow image pull or container flake can't fail or block a PR.
 
 ---
 
@@ -342,10 +370,10 @@ For the credential-free checks that run in CI today, see [Testing](#testing).
 - [x] Evaluation dataset + runner (`NexusOps.Evaluation`, credential-free `--validate-only` runs in CI)
 - [x] Workflow Orchestrator (MassTransit sagas, PostgreSQL state)
 - [x] Notification Service (Node.js/TypeScript)
+- [x] Integration test suite (`NexusOps.IntegrationTests`, Aspire.Hosting.Testing over real Docker-provisioned RabbitMQ/PostgreSQL, gated to `push` to `master`)
 
 **Planned:**
 - [ ] React chat UI with AG-UI streaming
-- [ ] Integration test suite
 - [ ] Kubernetes deployment (Helm manifests)
 - [ ] Kafka audit/event stream
 - [ ] Second domain pack
