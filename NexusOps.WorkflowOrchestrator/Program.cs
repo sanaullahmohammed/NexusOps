@@ -26,13 +26,18 @@ builder.Services.AddMassTransit(x =>
         // before it falls through to the broker's own redelivery/dead-letter handling.
         cfg.UseMessageRetry(r => r.Intervals(50, 100, 200, 500));
 
-        // Excludes OrderActionSagaState from this sweep's auto-discovery -- a filter scoped to this
-        // one ConfigureEndpoints call, not a type-level [ExcludeFromConfigureEndpoints] attribute
-        // (an earlier version of this fix used the attribute; it unconditionally excluded the saga
-        // from every registration context project-wide, including MassTransit's own test harness in
-        // NexusOps.Tests, which broke all of it silently until the suite was re-run). Its endpoint
-        // is configured manually below instead, so it can carry UseEntityFrameworkOutbox.
-        cfg.ConfigureEndpoints(context, x => x.Exclude<OrderActionSagaState>());
+        // Excludes OrderActionSagaState and OrderInvestigationSagaState from this sweep's
+        // auto-discovery -- a filter scoped to this one ConfigureEndpoints call, not a type-level
+        // [ExcludeFromConfigureEndpoints] attribute (an earlier version of this fix used the
+        // attribute; it unconditionally excluded the saga from every registration context
+        // project-wide, including MassTransit's own test harness in NexusOps.Tests, which broke all
+        // of it silently until the suite was re-run). Both endpoints are configured manually below
+        // instead, so each can carry its own UseEntityFrameworkOutbox.
+        cfg.ConfigureEndpoints(context, x =>
+        {
+            x.Exclude<OrderActionSagaState>();
+            x.Exclude<OrderInvestigationSagaState>();
+        });
 
         // UseBusOutbox() (configured in OrderAction/ServiceCollectionExtensions.cs) only covers
         // ISendEndpointProvider/IPublishEndpoint calls made OUTSIDE of a consume context -- per
@@ -51,6 +56,18 @@ builder.Services.AddMassTransit(x =>
             e.UseEntityFrameworkOutbox<OrderActionDbContext>(context);
             e.ConfigureSaga<OrderActionSagaState>(context);
         });
+
+        // Same reasoning as OrderActionSagaState above, closing the identical race for feature 005's
+        // saga (008-order-investigation-outbox research.md Decision 2): Initially(When(Requested))'s
+        // Publish(BeginInvestigationFanOut) runs inside a consume context, so without a
+        // receive-endpoint-level outbox it can reach the broker -- and a reply to it can come back
+        // and be discarded by OnMissingInstance -- before this SaveChanges has actually committed
+        // the new saga row.
+        cfg.ReceiveEndpoint("OrderInvestigationSagaState", e =>
+        {
+            e.UseEntityFrameworkOutbox<OrderInvestigationDbContext>(context);
+            e.ConfigureSaga<OrderInvestigationSagaState>(context);
+        });
     });
 });
 
@@ -59,10 +76,18 @@ var app = builder.Build();
 // Applies pending EF Core migrations on startup -- Aspire provisions the empty database, but
 // nothing else runs `dotnet ef database update` against it. Each saga owns its own migration set
 // in its own DbContext (data-model.md); a future saga applies its own migrations independently.
+// Order matters here: OrderActionDbContext's own InboxState/OutboxState/OutboxMessage migration
+// (feature 006) is a plain, non-idempotent CREATE TABLE, while OrderInvestigationDbContext's
+// equivalent migration is CREATE TABLE IF NOT EXISTS (008-order-investigation-outbox research.md
+// Decision 4 -- both contexts share these physical tables). Running OrderAction first means it
+// always creates them normally; OrderInvestigation's migration then finds them already present and
+// no-ops. Should OrderAction ever be deleted (this project's own domain-pluggability precedent
+// permits it), OrderInvestigation's migration becomes the one that actually creates the tables --
+// self-healing either way, but only if OrderAction runs first whenever it exists.
 using (var scope = app.Services.CreateScope())
 {
-    await scope.ServiceProvider.GetRequiredService<OrderInvestigationDbContext>().Database.MigrateAsync();
     await scope.ServiceProvider.GetRequiredService<OrderActionDbContext>().Database.MigrateAsync();
+    await scope.ServiceProvider.GetRequiredService<OrderInvestigationDbContext>().Database.MigrateAsync();
 }
 
 // Unlike AgentHost and the domain services, this host structurally cannot do anything without the
