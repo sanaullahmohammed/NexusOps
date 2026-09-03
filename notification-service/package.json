@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "amqplib": "^0.10.4"
+    "amqplib": "^2.0.1"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.5",
