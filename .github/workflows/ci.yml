@@ -58,6 +58,11 @@ jobs:
     name: integration-tests
     runs-on: ubuntu-latest
     needs: dotnet
+    # This job boots real containers and four spawned processes; a fixture that hangs would
+    # otherwise burn the default 360-minute job limit before GitHub reclaims the runner.
+    # WorkflowOrchestratorFixture's own StartupTimeout is 5 minutes and the suite runs in ~1,
+    # so 30 is generous headroom for a cold runner pulling images, not a tight bound.
+    timeout-minutes: 30
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v7
