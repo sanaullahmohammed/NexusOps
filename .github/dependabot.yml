@@ -46,6 +46,13 @@ updates:
         update-types:
           - minor
           - patch
+    ignore:
+      # TypeScript 7 is the native compiler port; typescript-eslint still peers
+      # "typescript": ">=4.8.4 <6.1.0", so `npm ci` fails ERESOLVE on any 7.x.
+      # Drop this entry once typescript-eslint ships TypeScript 7 support.
+      - dependency-name: "typescript"
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: /
