@@ -2,6 +2,12 @@
   "compilerOptions": {
     "target": "ES2023",
     "module": "NodeNext",
+    // TypeScript 7 (the native compiler port) no longer auto-includes every package under
+    // node_modules/@types the way 5.x did, so Node's globals (process, console, setTimeout) and
+    // node:* module declarations must be requested explicitly. Without this, every file here fails
+    // to compile under TS 7 -- silently, since amqplib 0.10's @types package used to drag @types/node
+    // in via its own /// <reference types="node" />, which amqplib 2.x's bundled types do not.
+    "types": ["node"],
     "moduleResolution": "NodeNext",
     "lib": ["ES2023"],
     "strict": true,
