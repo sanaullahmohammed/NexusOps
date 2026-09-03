@@ -54,6 +54,23 @@ updates:
         update-types:
           - version-update:semver-major
 
+  - package-ecosystem: npm
+    directory: /notification-service
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: UTC
+    commit-message:
+      prefix: "chore(deps)"
+    labels:
+      - dependencies
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
