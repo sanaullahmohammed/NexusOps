@@ -37,16 +37,16 @@ graph TD
         Inv[Inv. Svc]
     end
 
-    subgraph Async [Workflow Tools - AMQP, planned]
-        RMQ[[RabbitMQ - planned]]@{ "type" : "queue" }
-        subgraph Orch [Workflow Orchestrator, planned]
-            MT[MassTransit Sagas - planned]
+    subgraph Async [Workflow Tools - AMQP]
+        RMQ[[RabbitMQ]]@{ "type" : "queue" }
+        subgraph Orch [Workflow Orchestrator]
+            MT[MassTransit Sagas]
             MT_D[• OrderInvestigation<br/>• OrderAction]
         end
-        PG[(PostgreSQL<br/>saga state - planned)]
+        PG[(PostgreSQL<br/>saga state)]
     end
 
-    Notify[Notification Service - planned<br/><i>Node.js/TS</i>]
+    Notify[Notification Service<br/><i>Node.js/TS</i>]
 
     %% Connections
     Foundry <==> |HTTPS| AH
@@ -69,12 +69,8 @@ graph TD
     %% Styles
     style AH fill:#2d3436,color:#fff,stroke:#fff
     style Foundry fill:#0984e3,color:#fff,stroke:#74b9ff
-    style RMQ fill:#e67e22,color:#fff,stroke:#d35400,stroke-dasharray: 5 5
-    style MT fill:#2d3436,color:#fff,stroke:#fff,stroke-dasharray: 5 5
-    style PG stroke-dasharray: 5 5
-    style Notify stroke-dasharray: 5 5
-    style Orch stroke-dasharray: 5 5
-    style Async stroke-dasharray: 5 5
+    style RMQ fill:#e67e22,color:#fff,stroke:#d35400
+    style MT fill:#2d3436,color:#fff,stroke:#fff
 ```
 
 ### Two Communication Paths
@@ -92,16 +88,16 @@ Every request follows one of two paths, decided by the AI agent:
 | Component | Technology | Status |
 |---|---|---|
 | AI Reasoning | Microsoft Agent Framework | Implemented |
-| Durable Orchestration | MassTransit + RabbitMQ | Planned |
+| Durable Orchestration | MassTransit + RabbitMQ | Implemented |
 | Model Provider | Azure AI Foundry | Implemented |
-| Evaluation | Azure AI Foundry evaluators | Planned |
+| Evaluation | Dependency-light console runner (`NexusOps.Evaluation`) | Implemented |
 | App Orchestration & Observability | Aspire | Implemented |
 | Agent Host | ASP.NET Core | Implemented |
-| Workflow Orchestrator | ASP.NET Core + Entity Framework Core | Planned |
+| Workflow Orchestrator | ASP.NET Core + Entity Framework Core | Implemented |
 | Domain Services (Product, Order, Inventory) | ASP.NET Core Minimal APIs | Implemented |
-| Notification Service | Node.js + Express (TypeScript) + amqplib | Planned |
-| Saga Persistence | PostgreSQL | Planned |
-| Message Broker | RabbitMQ | Planned |
+| Notification Service | Node.js + TypeScript + amqplib (no framework) | Implemented |
+| Saga Persistence | PostgreSQL | Implemented |
+| Message Broker | RabbitMQ | Implemented |
 
 ---
 
@@ -111,13 +107,13 @@ The sample domain simulates the backend systems of an e-commerce platform. A use
 
 ### Domain Services
 
-**Product Service** — Product catalog: name, description, price, category, rating. Read-only.
+**Product Service** — Product catalog: name, description, price, category, weight. Read-only.
 
-**Order Service** — Orders and order items with lifecycle statuses: pending, processing, shipped, delivered, delayed, cancelled. Anomalous orders additionally carry an anomaly reason — delayed, missing, or payment-failed — which is what `investigate_order_anomaly` filters on.
+**Order Service** — Orders and order items with lifecycle statuses: pending, processing, shipped, delivered, delayed, cancelled, refunded. Anomalous orders additionally carry an anomaly reason — delayed, missing, or payment-failed — which is what `investigate_order_anomaly` filters on.
 
 **Inventory Service** — Stock levels per product. Supports investigation queries like "why was this order delayed" (stock was zero at time of order).
 
-**Notification Service** — Sends order confirmations, refund confirmations, low-stock alerts. The only service with side effects. Built in Node.js/TypeScript to demonstrate polyglot interop with MassTransit's wire protocol.
+**Notification Service** — Consumes `NotificationRequested`, published on every `OrderActionSaga` terminal outcome (refund/cancellation executed, failed, or failed-and-compensated), and logs one structured JSON line per outcome. Built in Node.js/TypeScript (no framework, just `amqplib`) to demonstrate polyglot interop with MassTransit's wire protocol.
 
 ### Example Queries
 
@@ -183,7 +179,7 @@ Do not add `ApiKey` to that file.
 dotnet run --project NexusOps.AppHost
 ```
 
-This starts all implemented services and Redis with service discovery and telemetry wired automatically via Aspire.
+This starts all services, Redis, RabbitMQ, and PostgreSQL with service discovery and telemetry wired automatically via Aspire.
 
 ### 4. Open the Aspire Dashboard
 
@@ -196,7 +192,7 @@ The Aspire developer dashboard launches automatically and provides distributed t
 curl -X POST http://localhost:<port>/api/chat \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Show me all delayed orders"}'
-# Response: { "response": "...", "sessionId": "<guid>" }
+# Response: { "response": "...", "sessionId": "<guid>", "toolsInvoked": ["investigate_order_anomaly"] }
 
 # Continue the conversation
 curl -X POST http://localhost:<port>/api/chat \
@@ -230,14 +226,17 @@ NexusOps.Contracts/        # Shared library — ToolResult<T>, ToolNames, SeedDa
 NexusOps.OrderService/     # ASP.NET Core Minimal API — order read operations, in-memory seed data
 NexusOps.InventoryService/ # ASP.NET Core Minimal API — inventory read operations, in-memory seed data
 NexusOps.ProductService/   # ASP.NET Core Minimal API — product read operations, in-memory seed data
+NexusOps.WorkflowOrchestrator/ # MassTransit v8 + RabbitMQ saga host — OrderInvestigationSaga, OrderActionSaga, PostgreSQL/EF Core state
+NexusOps.Evaluation/       # Dependency-light console project — evaluates AgentHost's tool-routing accuracy against a checked-in dataset
 NexusOps.Server/           # ASP.NET Core — serves React frontend, placeholder API (scaffold only)
-NexusOps.Tests/            # xUnit — unit tests for anomaly classification, session handling, tool cancellation
+NexusOps.Tests/            # xUnit — unit tests across anomalies, sessions, tool cancellation, both sagas, and the evaluation runner
+notification-service/      # Node.js + TypeScript + amqplib — logs a simulated email per OrderActionSaga terminal outcome
 frontend/                  # React 19 + Vite + TypeScript — chat UI (scaffold only)
 .specify/                  # Spec-kit configuration, templates, memory, extensions
 specs/                     # Feature specifications, plans, and task lists
 ```
 
-> **Planned but not yet implemented:** `NexusOps.WorkflowOrchestrator` (MassTransit sagas), Notification Service (Node.js/TS), evaluation runner, full React chat UI.
+> **Planned but not yet implemented:** full React chat UI (currently a scaffold).
 
 ---
 
@@ -245,27 +244,27 @@ specs/                     # Feature specifications, plans, and task lists
 
 ### OrderInvestigationSaga
 
-**Status:** Planned design — not yet implemented.
+**Status:** Implemented (feature 005).
 
-Coordinates parallel data gathering from multiple services for complex read queries.
+Coordinates parallel data gathering from multiple services for complex read queries. Three states:
 
 ```
-Requested → Dispatching → WaitingForResults → Aggregating → Completed / PartiallyCompleted / TimedOut
+Investigating → Completed | Failed
 ```
 
-Fans out to Order, Inventory, and Product services simultaneously. Returns partial results with degradation notes if a service is unavailable.
+Fans out to Order, Inventory, and Product services simultaneously, each bounded by its own timeout, then finalizes into one of the two terminal states based on the investigation's `InvestigationCompleteness` (`Complete` / `Degraded` / `Failed`) — **not** a third state. A `Degraded` completeness (one source unavailable or timed out, findable by name in the result) still finalizes in `Completed`, because partial results are treated as a success; the saga only transitions to `Failed` when the order itself can't be identified.
 
 ### OrderActionSaga
 
-**Status:** Planned design — not yet implemented.
+**Status:** Implemented (feature 006).
 
-Handles operations with real-world side effects through an approval gate.
+Handles operations with real-world side effects (refund, cancellation) through a mandatory human approval gate. Six states:
 
 ```
-Requested → AwaitingApproval → Approved → Executing → Completed / Compensating
+Validating → AwaitingApproval → Executing → Completed | Rejected | Failed
 ```
 
-Pauses for human approval before executing. Compensates if execution fails partway through (e.g., refund succeeded but notification failed).
+Parks in `AwaitingApproval` until a human calls `POST /api/approvals/{id}/approve` or `/reject` — a reject transitions straight to the terminal `Rejected` state, no mutation ever happens before that. On approval, `Executing` runs synchronously behind the request; it finalizes in `Completed` or `Failed` depending on the reported `OrderActionExecutionOutcome` (`Executed` / `Failed` / `FailedAndCompensated`) — that outcome, not a saga state, is what a caller actually sees. A confirmed failure partway through (e.g., cancellation's inventory leg faults after the order leg already succeeded) is compensated via a reverting call, reported as `FailedAndCompensated`; an unconfirmed timeout is left uncompensated and reported honestly as `Failed` rather than risking a worse silent inconsistency. A notification is published on every terminal outcome.
 
 ---
 
@@ -341,10 +340,10 @@ For the credential-free checks that run in CI today, see [Testing](#testing).
 - [x] CI/CD pipeline (build, CodeQL, dependency review, Dependabot)
 - [x] Unit test suite (`NexusOps.Tests`, runs in CI)
 - [x] Evaluation dataset + runner (`NexusOps.Evaluation`, credential-free `--validate-only` runs in CI)
+- [x] Workflow Orchestrator (MassTransit sagas, PostgreSQL state)
+- [x] Notification Service (Node.js/TypeScript)
 
 **Planned:**
-- [ ] Workflow Orchestrator (MassTransit sagas, PostgreSQL state)
-- [ ] Notification Service (Node.js/TypeScript)
 - [ ] React chat UI with AG-UI streaming
 - [ ] Integration test suite
 - [ ] Kubernetes deployment (Helm manifests)
