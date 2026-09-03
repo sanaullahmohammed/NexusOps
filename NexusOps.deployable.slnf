@@ -11,7 +11,8 @@
       "NexusOps.ProductService\\NexusOps.ProductService.csproj",
       "NexusOps.WorkflowOrchestrator\\NexusOps.WorkflowOrchestrator.csproj",
       "NexusOps.Server\\NexusOps.Server.csproj",
-      "NexusOps.Tests\\NexusOps.Tests.csproj"
+      "NexusOps.Tests\\NexusOps.Tests.csproj",
+      "NexusOps.Evaluation\\NexusOps.Evaluation.csproj"
     ]
   }
 }

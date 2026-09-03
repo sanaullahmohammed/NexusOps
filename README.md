@@ -277,24 +277,60 @@ cd frontend && npm run lint && npm run typecheck
 ```
 
 `NexusOps.Tests` covers anomaly classification and severity, order seed integrity, session
-resolution across store outages, turn trimming, startup configuration validation, and cancellation
-propagation through the tool handlers. It is unit-level by design — a fake `IDistributedCache` and a
-pinned `TimeProvider`, with no Redis or Azure AI dependency — so it runs on fork pull requests
-without secrets.
+resolution across store outages, turn trimming, startup configuration validation, cancellation
+propagation through the tool handlers, both sagas' full lifecycle (approve/reject/execute/compensate,
+concurrent-decision safety), and `NexusOps.Evaluation`'s dataset validation and tool-invocation
+extraction. It is unit-level by design — a fake `IDistributedCache`, a pinned `TimeProvider`, and
+MassTransit's in-memory test harness, with no Redis, RabbitMQ, Postgres, or Azure AI dependency — so
+it runs on fork pull requests without secrets.
 
-Both commands run in CI on every push and pull request to `master`.
+Both commands run in CI on every push and pull request to `master`, alongside the credential-free
+evaluation-dataset check described below.
 
 ---
 
 ## Evaluation
 
-> **Planned — not yet implemented.** No evaluation project exists in the repository today.
+`NexusOps.Evaluation` is a dependency-light console project (no eval framework — just
+`System.Text.Json` and `HttpClient`) that checks the agent's tool-routing accuracy against a curated
+JSON dataset of 24 realistic prompts (`NexusOps.Evaluation/Data/eval-cases.json`), each labeled with
+the tool it expects the agent to invoke and that tool's path (Direct or Saga). Every one of the
+project's 9 curated tools is covered by at least two differently-phrased cases, and both paths are
+represented, including the two approval-gated mutating tools — which, per the approval-gated design
+itself, never execute anything just from being exercised here; they only ever reach
+`AwaitingApproval`.
 
-The intended design is an evaluation dataset with test cases covering simple reads, multi-step
-investigations, action queries, and degraded scenarios, scored by Azure AI Foundry agent evaluators
-for tool selection accuracy, task completion, and tool call correctness.
+**Dataset validation** — credential-free, offline, no running services of any kind:
 
-For the automated checks that **do** run today, see [Testing](#testing).
+```bash
+dotnet run --project NexusOps.Evaluation -- --validate-only
+```
+
+Checks the dataset's schema, that every case ID is unique, that every `expectedTool` names a tool
+this project actually curates, and that every `expectedPath` is valid and consistent with its tool.
+This is the command CI runs on every push and pull request — it requires no network access and no
+Azure AI credentials, so it can never be broken by their absence.
+
+**Live evaluation** — requires a running `NexusOps.AgentHost` with valid Azure AI credentials
+configured (see [Configure Azure AI Foundry credentials](#2-configure-azure-ai-foundry-credentials)):
+
+```bash
+dotnet run --project NexusOps.AppHost    # or: dotnet run --project NexusOps.AgentHost
+
+dotnet run --project NexusOps.Evaluation -- --base-url <agent-host-url>
+# default base URL is http://localhost:5186 (AgentHost's own direct-run profile);
+# pass --base-url (or set AGENTHOST_BASE_URL) when running via Aspire, whose port is dynamic —
+# check the Aspire dashboard for agent-host's external endpoint.
+```
+
+This is the default mode (no flag needed) — it sends every dataset prompt to a fresh, session-less
+turn, records which tool the agent actually invoked, and prints a pass/fail line per case plus a
+summary table (total/passed/failed/pass rate). Before sending any prompt, it probes `AgentHost`'s
+`/health` endpoint; if nothing is reachable there, it prints a `SKIPPED` banner with the exact setup
+steps above and exits successfully — **never** as a failure. This is what makes it safe for live mode
+to be the default: running it by accident with no `AgentHost` running cannot break anything.
+
+For the credential-free checks that run in CI today, see [Testing](#testing).
 
 ---
 
@@ -304,13 +340,13 @@ For the automated checks that **do** run today, see [Testing](#testing).
 - [x] Redis-backed session management (multi-turn conversation continuity, 30-min TTL, 20-turn cap, graceful degradation)
 - [x] CI/CD pipeline (build, CodeQL, dependency review, Dependabot)
 - [x] Unit test suite (`NexusOps.Tests`, runs in CI)
+- [x] Evaluation dataset + runner (`NexusOps.Evaluation`, credential-free `--validate-only` runs in CI)
 
 **Planned:**
 - [ ] Workflow Orchestrator (MassTransit sagas, PostgreSQL state)
 - [ ] Notification Service (Node.js/TypeScript)
 - [ ] React chat UI with AG-UI streaming
 - [ ] Integration test suite
-- [ ] Evaluation dataset + runner
 - [ ] Kubernetes deployment (Helm manifests)
 - [ ] Kafka audit/event stream
 - [ ] Second domain pack

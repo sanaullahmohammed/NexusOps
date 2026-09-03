@@ -15,6 +15,17 @@ public sealed class FakeAgent(Func<IEnumerable<ChatMessage>, string> respond) : 
 
     public static FakeAgent Echoing(string reply = "ok") => new(_ => reply);
 
+    /// <summary>An agent whose reply message carries a <see cref="FunctionCallContent"/> per named
+    /// tool, for exercising 007's ToolsInvoked extraction without a real model call.</summary>
+    public static FakeAgent InvokingTools(params string[] toolNames)
+    {
+        var agent = new FakeAgent(_ => "ok") { ToolNamesToReport = toolNames };
+        return agent;
+    }
+
+    /// <summary>Tool names <see cref="RunCoreAsync"/> reports as invoked, via <see cref="InvokingTools"/>.</summary>
+    private string[] ToolNamesToReport { get; init; } = [];
+
     /// <summary>The messages passed on the most recent call — history plus the new user turn.</summary>
     public List<ChatMessage> LastMessages { get; private set; } = [];
 
@@ -29,7 +40,14 @@ public sealed class FakeAgent(Func<IEnumerable<ChatMessage>, string> respond) : 
         LastMessages = messages.ToList();
         CallCount++;
         var text = respond(LastMessages);
-        return Task.FromResult(new AgentResponse(new ChatMessage(ChatRole.Assistant, text)));
+
+        var reply = new ChatMessage(ChatRole.Assistant, text);
+        foreach (var toolName in ToolNamesToReport)
+        {
+            reply.Contents.Add(new FunctionCallContent(callId: Guid.NewGuid().ToString(), name: toolName, arguments: null!));
+        }
+
+        return Task.FromResult(new AgentResponse(reply));
     }
 
     protected override IAsyncEnumerable<AgentResponseUpdate> RunCoreStreamingAsync(

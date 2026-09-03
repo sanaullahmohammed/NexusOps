@@ -22,8 +22,8 @@ public static class ChatEndpoints
 
             try
             {
-                var (response, sessionId) = await agentService.SendAsync(request.Prompt, request.SessionId, ct);
-                return Results.Ok(new ChatResponse(response, sessionId));
+                var (response, sessionId, toolsInvoked) = await agentService.SendAsync(request.Prompt, request.SessionId, ct);
+                return Results.Ok(new ChatResponse(response, sessionId, toolsInvoked));
             }
             catch (AgentInvocationException ex)
             {
@@ -60,4 +60,5 @@ record ChatRequest(string Prompt, string? SessionId = null);
 /// <summary>The agent's response to the prompt.</summary>
 /// <param name="Response">The model's reply.</param>
 /// <param name="SessionId">The active session identifier — either the caller-supplied one or newly minted.</param>
-record ChatResponse(string Response, string SessionId);
+/// <param name="ToolsInvoked">Names of the tools the agent invoked while producing this turn's response, in invocation order. Empty when no tool was invoked.</param>
+record ChatResponse(string Response, string SessionId, IReadOnlyList<string> ToolsInvoked);
