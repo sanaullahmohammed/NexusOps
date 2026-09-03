@@ -35,6 +35,16 @@ public static class ToolHandlerExtensions
                     ToolNames.InvestigateOrderRootCauseDescription),
 
                 AIFunctionFactory.Create(
+                    orderTools.RequestOrderRefundAsync,
+                    ToolNames.RequestOrderRefund,
+                    ToolNames.RequestOrderRefundDescription),
+
+                AIFunctionFactory.Create(
+                    orderTools.RequestOrderCancellationAsync,
+                    ToolNames.RequestOrderCancellation,
+                    ToolNames.RequestOrderCancellationDescription),
+
+                AIFunctionFactory.Create(
                     inventoryTools.GetInventoryAlertsAsync,
                     ToolNames.GetInventoryAlerts,
                     ToolNames.GetInventoryAlertsDescription),

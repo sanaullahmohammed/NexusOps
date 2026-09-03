@@ -42,4 +42,24 @@ public static class ToolNames
         "Pass the order ID (e.g., ORD-0001). May return a degraded or failed result if a downstream source is unavailable. " +
         "If the order finding comes back NotFound, tell the operator the order does not exist — this is a completed, " +
         "trustworthy result (not a degraded or failed one), distinct from a source being unavailable.";
+
+    public const string RequestOrderRefund = "request_order_refund";
+    public const string RequestOrderRefundDescription =
+        "Request a refund for a specific, existing order. This does NOT execute the refund — it creates a pending " +
+        "request that requires explicit human approval before anything changes. Pass the order ID (e.g., ORD-0001), " +
+        "and optionally an amount (defaults to the order's full total if omitted) and a reason. " +
+        "After calling this tool, you MUST tell the operator the refund is pending approval and give them the " +
+        "returned reference identifier — you MUST NOT say or imply that the refund has happened. " +
+        "If the result reports the order was not found, tell the operator the order does not exist and that no " +
+        "refund request was created.";
+
+    public const string RequestOrderCancellation = "request_order_cancellation";
+    public const string RequestOrderCancellationDescription =
+        "Request the cancellation of a specific, existing order. This does NOT execute the cancellation — it " +
+        "creates a pending request that requires explicit human approval before anything changes. Pass the order " +
+        "ID (e.g., ORD-0001) and optionally a reason. On approval, both the order and the inventory it reserved " +
+        "are affected. After calling this tool, you MUST tell the operator the cancellation is pending approval " +
+        "and give them the returned reference identifier — you MUST NOT say or imply that the cancellation has " +
+        "happened. If the result reports the order was not found, tell the operator the order does not exist and " +
+        "that no cancellation request was created.";
 }

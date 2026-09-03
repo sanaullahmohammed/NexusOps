@@ -11,10 +11,13 @@ builder.Services.AddProblemDetails();
 // Endpoints resolve "today" once per request through TimeProvider and pass it to the seed, so
 // date-derived values stay plausible over time and stay deterministic under test.
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<OrderMutationOverlay>();
 
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<RequestOrderFindingConsumer>();
+    x.AddConsumer<ExecuteOrderMutationConsumer>();
+    x.AddConsumer<CompensateOrderMutationConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {

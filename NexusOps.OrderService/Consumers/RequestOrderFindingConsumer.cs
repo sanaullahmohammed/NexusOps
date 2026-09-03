@@ -9,7 +9,7 @@ namespace NexusOps.OrderService.Consumers;
 /// Answers the fan-out coordinator's order lookup for a root-cause investigation. Responds rather
 /// than publishes — this leg of the fan-out is request/response (saga-message-contracts.md, Leg 3).
 /// </summary>
-public sealed class RequestOrderFindingConsumer(TimeProvider timeProvider) : IConsumer<RequestOrderFinding>
+public sealed class RequestOrderFindingConsumer(TimeProvider timeProvider, OrderMutationOverlay overlay) : IConsumer<RequestOrderFinding>
 {
     public Task Consume(ConsumeContext<RequestOrderFinding> context)
     {
@@ -23,6 +23,8 @@ public sealed class RequestOrderFindingConsumer(TimeProvider timeProvider) : ICo
                 context.Message.CorrelationId, SourceFindingStatus.NotFound, null));
         }
 
+        order = order.ApplyOverlay(overlay);
+
         var summary = new OrderSummary(
             OrderId: order.OrderId,
             CustomerId: order.CustomerId,
@@ -32,7 +34,8 @@ public sealed class RequestOrderFindingConsumer(TimeProvider timeProvider) : ICo
             ActualDelivery: order.ActualDelivery,
             LineItems: order.LineItems
                 .Select(li => new OrderLineItem(li.Sku, li.ProductName, li.Quantity, li.UnitPrice))
-                .ToArray());
+                .ToArray(),
+            RefundedAmount: order.RefundedAmount);
 
         return context.RespondAsync(new OrderFindingReported(
             context.Message.CorrelationId, SourceFindingStatus.Succeeded, summary));

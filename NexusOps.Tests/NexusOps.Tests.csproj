@@ -20,6 +20,7 @@
     <ProjectReference Include="..\NexusOps.AgentHost\NexusOps.AgentHost.csproj" />
     <ProjectReference Include="..\NexusOps.Contracts\NexusOps.Contracts.csproj" />
     <ProjectReference Include="..\NexusOps.OrderService\NexusOps.OrderService.csproj" />
+    <ProjectReference Include="..\NexusOps.InventoryService\NexusOps.InventoryService.csproj" />
     <ProjectReference Include="..\NexusOps.WorkflowOrchestrator\NexusOps.WorkflowOrchestrator.csproj" />
   </ItemGroup>
 

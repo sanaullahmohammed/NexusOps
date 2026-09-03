@@ -21,6 +21,13 @@ public sealed class OrderTools(
     // for a case the saga was about to answer correctly with a Degraded result.
     private static readonly RequestTimeout RootCauseTimeout = RequestTimeout.After(s: 12);
 
+    // Covers validation's own 5s per-leg timeout plus transit/serialization headroom
+    // (contracts/saga-message-contracts.md's Timeout Budget table, Leg 1). Widened from an initial
+    // 8s after live verification observed an occasional spurious timeout under host load with no
+    // corresponding broker backlog -- the same "size above the true worst case, not a single leg's
+    // figure" correction 005's research.md Decision 2 made for its own root-cause timeout.
+    private static readonly RequestTimeout ActionRequestTimeout = RequestTimeout.After(s: 10);
+
     public async Task<ToolResult<OrderAnomaly[]>> InvestigateOrderAnomalyAsync(
         string? status = null,
         CancellationToken cancellationToken = default)
@@ -116,6 +123,79 @@ public sealed class OrderTools(
         {
             logger.LogError(ex, "Failed to investigate root cause for {OrderId}", orderId);
             return ToolResult<RootCauseInvestigationResult>.Fail("The workflow orchestrator is temporarily unavailable.");
+        }
+    }
+
+    public async Task<ToolResult<OrderActionRequestResult>> RequestOrderRefundAsync(
+        string orderId,
+        decimal? amount = null,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var client = clientFactory.CreateRequestClient<RequestOrderRefund>(ActionRequestTimeout);
+            var response = await client.GetResponse<OrderActionRequestResult>(
+                new RequestOrderRefund(orderId, amount, reason), cancellationToken);
+
+            return response.Message.Status switch
+            {
+                OrderActionStatus.NotFound => ToolResult<OrderActionRequestResult>.Fail(
+                    $"Order {orderId} was not found. No refund request was created."),
+                OrderActionStatus.Unavailable => ToolResult<OrderActionRequestResult>.Fail(
+                    $"Could not confirm order {orderId} exists — the order service was unavailable. No refund request was created; please retry."),
+                _ => ToolResult<OrderActionRequestResult>.Ok(response.Message)
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RequestTimeoutException)
+        {
+            logger.LogWarning("Refund request for {OrderId} timed out waiting for the saga", orderId);
+            return ToolResult<OrderActionRequestResult>.Fail($"The refund request for order {orderId} timed out before a reference was available.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to request refund for {OrderId}", orderId);
+            return ToolResult<OrderActionRequestResult>.Fail("The workflow orchestrator is temporarily unavailable.");
+        }
+    }
+
+    public async Task<ToolResult<OrderActionRequestResult>> RequestOrderCancellationAsync(
+        string orderId,
+        string? reason = null,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var client = clientFactory.CreateRequestClient<RequestOrderCancellation>(ActionRequestTimeout);
+            var response = await client.GetResponse<OrderActionRequestResult>(
+                new RequestOrderCancellation(orderId, reason), cancellationToken);
+
+            return response.Message.Status switch
+            {
+                OrderActionStatus.NotFound => ToolResult<OrderActionRequestResult>.Fail(
+                    $"Order {orderId} was not found. No cancellation request was created."),
+                OrderActionStatus.Unavailable => ToolResult<OrderActionRequestResult>.Fail(
+                    $"Could not confirm order {orderId} exists — the order service was unavailable. No cancellation request was created; please retry."),
+                _ => ToolResult<OrderActionRequestResult>.Ok(response.Message)
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (RequestTimeoutException)
+        {
+            logger.LogWarning("Cancellation request for {OrderId} timed out waiting for the saga", orderId);
+            return ToolResult<OrderActionRequestResult>.Fail($"The cancellation request for order {orderId} timed out before a reference was available.");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to request cancellation for {OrderId}", orderId);
+            return ToolResult<OrderActionRequestResult>.Fail("The workflow orchestrator is temporarily unavailable.");
         }
     }
 }
