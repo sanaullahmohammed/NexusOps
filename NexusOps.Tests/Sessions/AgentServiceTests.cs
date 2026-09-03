@@ -28,7 +28,7 @@ public class AgentServiceTests
     {
         var store = new FakeConversationStore { IsUnavailable = true };
 
-        var (_, sessionId) = await Create(store).SendAsync("hello", CallerSessionId);
+        var (_, sessionId, _) = await Create(store).SendAsync("hello", CallerSessionId);
 
         Assert.Equal(CallerSessionId, sessionId);
     }
@@ -42,7 +42,7 @@ public class AgentServiceTests
         var ids = new List<string>();
         for (var i = 0; i < 5; i++)
         {
-            var (_, id) = await service.SendAsync($"message {i}", CallerSessionId);
+            var (_, id, _) = await service.SendAsync($"message {i}", CallerSessionId);
             ids.Add(id);
         }
 
@@ -67,7 +67,7 @@ public class AgentServiceTests
     {
         var store = new FakeConversationStore();   // reachable, holds nothing
 
-        var (_, sessionId) = await Create(store).SendAsync("hello", CallerSessionId);
+        var (_, sessionId, _) = await Create(store).SendAsync("hello", CallerSessionId);
 
         Assert.NotEqual(CallerSessionId, sessionId);
         Assert.True(Guid.TryParse(sessionId, out _));
@@ -80,7 +80,7 @@ public class AgentServiceTests
         store.Seed(CallerSessionId, Turn("first"), Turn("second", "assistant"));
         var agent = FakeAgent.Echoing();
 
-        var (_, sessionId) = await Create(store, agent).SendAsync("third", CallerSessionId);
+        var (_, sessionId, _) = await Create(store, agent).SendAsync("third", CallerSessionId);
 
         Assert.Equal(CallerSessionId, sessionId);
         Assert.Equal(3, agent.LastMessages.Count);   // two restored turns plus the new one
@@ -93,7 +93,7 @@ public class AgentServiceTests
     {
         var store = new FakeConversationStore();
 
-        var (_, sessionId) = await Create(store).SendAsync("hello", sessionId: null);
+        var (_, sessionId, _) = await Create(store).SendAsync("hello", sessionId: null);
 
         Assert.Equal(0, store.GetCallCount);
         Assert.True(Guid.TryParse(sessionId, out _));
@@ -107,7 +107,7 @@ public class AgentServiceTests
     {
         var store = new FakeConversationStore();
 
-        var (_, sessionId) = await Create(store).SendAsync("hello", supplied);
+        var (_, sessionId, _) = await Create(store).SendAsync("hello", supplied);
 
         Assert.Equal(0, store.GetCallCount);
         Assert.False(string.IsNullOrWhiteSpace(sessionId));
@@ -202,7 +202,7 @@ public class AgentServiceTests
         var store = new FakeConversationStore();
         using var cts = new CancellationTokenSource();
 
-        var (_, sessionId) = await Create(store, FakeAgent.Echoing("answer"))
+        var (_, sessionId, _) = await Create(store, FakeAgent.Echoing("answer"))
             .SendAsync("question", null, cts.Token);
         await cts.CancelAsync();
 
@@ -221,7 +221,7 @@ public class AgentServiceTests
     {
         var store = new FakeConversationStore();
 
-        var (_, sessionId) = await Create(store).SendAsync("hello", malformed);
+        var (_, sessionId, _) = await Create(store).SendAsync("hello", malformed);
 
         Assert.NotEqual(malformed, sessionId);
         Assert.True(Guid.TryParseExact(sessionId, "D", out _));
@@ -245,7 +245,7 @@ public class AgentServiceTests
     {
         var store = new FakeConversationStore();
 
-        var (response, sessionId) = await Create(store, FakeAgent.Echoing("the answer")).SendAsync("the question", null);
+        var (response, sessionId, _) = await Create(store, FakeAgent.Echoing("the answer")).SendAsync("the question", null);
 
         Assert.Equal("the answer", response);
         var turns = store.TurnsFor(sessionId);

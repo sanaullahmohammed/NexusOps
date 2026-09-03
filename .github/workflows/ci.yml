@@ -39,6 +39,9 @@ jobs:
       - name: Test
         run: dotnet test NexusOps.deployable.slnf --configuration Release --no-build --logger "console;verbosity=minimal"
 
+      - name: Validate evaluation dataset
+        run: dotnet run --project NexusOps.Evaluation --configuration Release --no-build -- --validate-only
+
   frontend:
     name: frontend
     runs-on: ubuntu-latest

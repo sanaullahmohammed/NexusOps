@@ -21,7 +21,7 @@ public sealed class AgentService : IAgentService
         _logger = logger;
     }
 
-    public async Task<(string Response, string SessionId)> SendAsync(string prompt, string? sessionId, CancellationToken cancellationToken = default)
+    public async Task<(string Response, string SessionId, IReadOnlyList<string> ToolsInvoked)> SendAsync(string prompt, string? sessionId, CancellationToken cancellationToken = default)
     {
         var options = _sessionOptions.Value;
         var now = DateTimeOffset.UtcNow;
@@ -39,10 +39,12 @@ public sealed class AgentService : IAgentService
         var userTurn = new ConversationTurn("user", prompt, now);
 
         string responseText;
+        IReadOnlyList<string> toolsInvoked;
         try
         {
             var agentResponse = await _agent.RunAsync(messages, session: null, options: null, cancellationToken);
             responseText = agentResponse.ToString();
+            toolsInvoked = ExtractToolsInvoked(agentResponse.Messages);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -65,8 +67,19 @@ public sealed class AgentService : IAgentService
         var savedCount = Math.Min(history.Count + 2, options.MaxTurns);
         _logger.LogDebug("session.history_saved {SessionIdPrefix} {TurnCount} {Timestamp}", SessionLogToken.For(activeSessionId), savedCount, DateTimeOffset.UtcNow);
 
-        return (responseText, activeSessionId);
+        return (responseText, activeSessionId, toolsInvoked);
     }
+
+    /// <summary>
+    /// The Microsoft Agent Framework already records every tool call this turn made as
+    /// <see cref="FunctionCallContent"/> items on the response's messages — this is a pure
+    /// projection over data already returned, not a second model call.
+    /// </summary>
+    private static IReadOnlyList<string> ExtractToolsInvoked(IEnumerable<ChatMessage> messages) =>
+        [.. messages
+            .SelectMany(m => m.Contents)
+            .OfType<FunctionCallContent>()
+            .Select(c => c.Name)];
 
     /// <summary>
     /// Determines which session this request belongs to and what history it starts from.

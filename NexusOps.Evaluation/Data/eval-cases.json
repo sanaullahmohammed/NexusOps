@@ -1,0 +1,170 @@
+[
+  {
+    "id": "case-001",
+    "prompt": "Show me all the orders that are currently delayed.",
+    "expectedTool": "investigate_order_anomaly",
+    "expectedPath": "Direct",
+    "notes": "Broad anomaly listing with a status filter."
+  },
+  {
+    "id": "case-002",
+    "prompt": "Which orders have a failed payment right now?",
+    "expectedTool": "investigate_order_anomaly",
+    "expectedPath": "Direct",
+    "notes": "Broad anomaly listing, different status filter phrasing."
+  },
+  {
+    "id": "case-003",
+    "prompt": "List every anomalous order in the system right now.",
+    "expectedTool": "investigate_order_anomaly",
+    "expectedPath": "Direct",
+    "notes": "Broad anomaly listing with no status filter."
+  },
+  {
+    "id": "case-004",
+    "prompt": "What's the current status of order ORD-0002?",
+    "expectedTool": "get_order_details",
+    "expectedPath": "Direct",
+    "notes": "Plain single-order status check, not a root-cause question."
+  },
+  {
+    "id": "case-005",
+    "prompt": "Give me the full details for order ORD-0005.",
+    "expectedTool": "get_order_details",
+    "expectedPath": "Direct",
+    "notes": "Plain single-order details lookup."
+  },
+  {
+    "id": "case-006",
+    "prompt": "Look up order ORD-9999 for me.",
+    "expectedTool": "get_order_details",
+    "expectedPath": "Direct",
+    "notes": "Edge case: a nonexistent order ID. Tool routing is still deterministic even though the tool's own result will be a not-found response."
+  },
+  {
+    "id": "case-007",
+    "prompt": "What products are running low on stock?",
+    "expectedTool": "get_inventory_alerts",
+    "expectedPath": "Direct",
+    "notes": "Inventory alert listing, reorder-threshold phrasing."
+  },
+  {
+    "id": "case-008",
+    "prompt": "Show me the items that are completely out of stock.",
+    "expectedTool": "get_inventory_alerts",
+    "expectedPath": "Direct",
+    "notes": "Inventory alert listing, outOfStockOnly phrasing."
+  },
+  {
+    "id": "case-009",
+    "prompt": "How many units of SKU-ELEC-001 do we currently have in stock?",
+    "expectedTool": "get_inventory_level",
+    "expectedPath": "Direct",
+    "notes": "Single-SKU stock level lookup."
+  },
+  {
+    "id": "case-010",
+    "prompt": "Check the inventory level for SKU-HOME-003.",
+    "expectedTool": "get_inventory_level",
+    "expectedPath": "Direct",
+    "notes": "Single-SKU stock level lookup, different SKU."
+  },
+  {
+    "id": "case-011",
+    "prompt": "Tell me about product SKU-APRL-002 — what is it and how much does it cost?",
+    "expectedTool": "get_product_details",
+    "expectedPath": "Direct",
+    "notes": "Single-SKU product details lookup."
+  },
+  {
+    "id": "case-012",
+    "prompt": "What are the specs and price for SKU-ELEC-004?",
+    "expectedTool": "get_product_details",
+    "expectedPath": "Direct",
+    "notes": "Single-SKU product details lookup, different SKU."
+  },
+  {
+    "id": "case-013",
+    "prompt": "List all products in the Electronics category.",
+    "expectedTool": "list_products_by_category",
+    "expectedPath": "Direct",
+    "notes": "Category browse, a known category."
+  },
+  {
+    "id": "case-014",
+    "prompt": "Show me everything you sell in Home & Garden.",
+    "expectedTool": "list_products_by_category",
+    "expectedPath": "Direct",
+    "notes": "Category browse, a different known category."
+  },
+  {
+    "id": "case-015",
+    "prompt": "What products do you sell in the Outdoor category?",
+    "expectedTool": "list_products_by_category",
+    "expectedPath": "Direct",
+    "notes": "Edge case: an unsupported category. Tool routing is still deterministic even though the category filter itself will find nothing."
+  },
+  {
+    "id": "case-016",
+    "prompt": "Why is order ORD-0003 delayed? I need the root cause, not just its status.",
+    "expectedTool": "investigate_order_root_cause",
+    "expectedPath": "Saga",
+    "notes": "Explicit cross-service 'why' investigation."
+  },
+  {
+    "id": "case-017",
+    "prompt": "Investigate why order ORD-0007 keeps failing.",
+    "expectedTool": "investigate_order_root_cause",
+    "expectedPath": "Saga",
+    "notes": "Explicit cross-service 'why' investigation, different order."
+  },
+  {
+    "id": "case-018",
+    "prompt": "Can you dig into why order ORD-0001 is stuck and cross-check it against inventory and product data?",
+    "expectedTool": "investigate_order_root_cause",
+    "expectedPath": "Saga",
+    "notes": "Explicit cross-service investigation, phrased around the cross-referencing itself."
+  },
+  {
+    "id": "case-024",
+    "prompt": "What's the reason order ORD-0009 keeps failing? Check across every service, not just the order itself.",
+    "expectedTool": "investigate_order_root_cause",
+    "expectedPath": "Saga",
+    "notes": "Paired with case-023 on the same order ID to probe the plain-status vs. root-cause routing boundary."
+  },
+  {
+    "id": "case-019",
+    "prompt": "Please refund order ORD-0004 in full.",
+    "expectedTool": "request_order_refund",
+    "expectedPath": "Saga",
+    "notes": "Refund request, full amount implied."
+  },
+  {
+    "id": "case-020",
+    "prompt": "I need to issue a $25 refund on order ORD-0006 for a damaged item.",
+    "expectedTool": "request_order_refund",
+    "expectedPath": "Saga",
+    "notes": "Refund request with an explicit partial amount and reason."
+  },
+  {
+    "id": "case-021",
+    "prompt": "Cancel order ORD-0008 — the customer no longer wants it.",
+    "expectedTool": "request_order_cancellation",
+    "expectedPath": "Saga",
+    "notes": "Cancellation request with a reason."
+  },
+  {
+    "id": "case-022",
+    "prompt": "Please cancel order ORD-0002. They changed their mind.",
+    "expectedTool": "request_order_cancellation",
+    "expectedPath": "Saga",
+    "notes": "Cancellation request, different order and phrasing."
+  },
+  {
+    "id": "case-023",
+    "prompt": "Is order ORD-0009 still on track?",
+    "expectedTool": "get_order_details",
+    "expectedPath": "Direct",
+    "notes": "Paired with case-024 on the same order ID: a plain status check must not be routed to the root-cause investigation tool."
+  }
+]
