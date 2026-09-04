@@ -63,6 +63,7 @@ var server = builder.AddProject<Projects.NexusOps_Server>("server")
     .WithExternalHttpEndpoints();
 
 var webfrontend = builder.AddViteApp("webfrontend", "../frontend")
+    .WithHttpHealthCheck("/")
     .WithReference(server)
     .WaitFor(server);
 

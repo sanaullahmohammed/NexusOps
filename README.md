@@ -11,7 +11,7 @@ Ships with an **E-Commerce Operations** sample domain. The same orchestration co
 NexusOps is a proof-of-concept that translates patterns from fintech operations engineering into agentic-AI workflow design. Three patterns carry over directly:
 
 - **Multi-source aggregation → investigation fan-out.** Reconciling an incident across trading, settlement, and reference-data systems maps to `OrderInvestigationSaga` fanning out reads across Order, Inventory, and Product services in parallel and returning partial results under degradation.
-- **Maker-checker approval → the human approval gate.** Financial operations rarely let one actor both propose and execute a state-changing action. `OrderActionSaga` encodes the same discipline: any mutation (refund, cancel) pauses in an `AwaitingApproval` state until a human approves it — the notification that reports the outcome afterward is not itself gated (see [Key Design Decisions](#key-design-decisions)).
+- **Maker-checker approval → the human approval gate.** Financial operations rarely let one actor both propose and execute a state-changing action. `OrderActionSaga` encodes the same discipline: any mutation (refund, cancel) pauses in an `AwaitingApproval` state until a human approves it — the notification that reports the outcome afterward isn't a second approval step of its own, it inherits that same decision as its consent (see [Key Design Decisions](#key-design-decisions)).
 - **Compensation on partial failure → saga compensation.** Reversing a partially-applied write when a downstream leg fails is the same shape whether the leg is a trade settlement or a refund whose confirmation notification never sent.
 
 The AI agent supplies the natural-language front end; the saga orchestrator supplies the durability guarantees an operations team would expect from any system that touches money or inventory. Curated tools stand in for a governed API surface — the agent gets named capabilities, never raw database or endpoint access.
@@ -128,7 +128,7 @@ The sample domain simulates the backend systems of an e-commerce platform. A use
 
 **Inventory Service** — Stock levels per product. Supports investigation queries like "why was this order delayed" (stock was zero at time of order).
 
-**Notification Service** — Consumes `NotificationRequested`, published on every `OrderActionSaga` terminal outcome (refund/cancellation executed, failed, or failed-and-compensated), and logs one structured JSON line per outcome. Built in Node.js/TypeScript (no framework, just `amqplib`) to demonstrate polyglot interop with MassTransit's wire protocol.
+**Notification Service** — Consumes `NotificationRequested`, published on every `OrderActionSaga` terminal outcome that follows a human decision (rejected; executed, failed, or failed-and-compensated after approval — a pre-approval validation failure publishes none), and logs one structured JSON line per outcome. Built in Node.js/TypeScript (no framework, just `amqplib`) to demonstrate polyglot interop with MassTransit's wire protocol.
 
 ### Example Queries
 
@@ -223,7 +223,7 @@ curl -X POST http://localhost:<port>/api/chat \
 
 **Curated tools over raw Swagger.** The LLM sees high-level tools like `investigate_order_anomaly` instead of `GET /orders?status=delayed`. Better tool selection, simpler prompts, safer boundaries.
 
-**Side effects require approval.** Any operation that changes real-world state (refund, cancellation) goes through the OrderActionSaga with a human approval gate. Read operations auto-execute. (The saga's terminal-outcome notification is published unconditionally, not itself gated — see CLAUDE.md's "Flagged: Constitution Tensions.")
+**Side effects require approval.** Any operation that changes real-world state (refund, cancellation) goes through the OrderActionSaga with a human approval gate. Read operations auto-execute. (The saga's terminal-outcome notification carries that same approve/reject decision as its consent, not a separate gate of its own — verified against `OrderActionSaga.cs` in `specs/010-constitution-reconciliation/`; the one terminal outcome with no prior human decision, a pre-approval validation failure, publishes no notification at all.)
 
 **Saga communication over AMQP.** When sagas dispatch work to domain services, commands flow over RabbitMQ — not HTTP. Full delivery guarantees, retry, and dead-letter handling.
 
@@ -280,7 +280,7 @@ Handles operations with real-world side effects (refund, cancellation) through a
 Validating → AwaitingApproval → Executing → Completed | Rejected | Failed
 ```
 
-Parks in `AwaitingApproval` until a human calls `POST /api/approvals/{id}/approve` or `/reject` — a reject transitions straight to the terminal `Rejected` state, no mutation ever happens before that. On approval, `Executing` runs synchronously behind the request; it finalizes in `Completed` or `Failed` depending on the reported `OrderActionExecutionOutcome` (`Executed` / `Failed` / `FailedAndCompensated`) — that outcome, not a saga state, is what a caller actually sees. A confirmed failure partway through (e.g., cancellation's inventory leg faults after the order leg already succeeded) is compensated via a reverting call, reported as `FailedAndCompensated`; an unconfirmed timeout is left uncompensated and reported honestly as `Failed` rather than risking a worse silent inconsistency. A notification is published on every terminal outcome.
+Parks in `AwaitingApproval` until a human calls `POST /api/approvals/{id}/approve` or `/reject` — a reject transitions straight to the terminal `Rejected` state, no mutation ever happens before that. On approval, `Executing` runs synchronously behind the request; it finalizes in `Completed` or `Failed` depending on the reported `OrderActionExecutionOutcome` (`Executed` / `Failed` / `FailedAndCompensated`) — that outcome, not a saga state, is what a caller actually sees. A confirmed failure partway through (e.g., cancellation's inventory leg faults after the order leg already succeeded) is compensated via a reverting call, reported as `FailedAndCompensated`; an unconfirmed timeout is left uncompensated and reported honestly as `Failed` rather than risking a worse silent inconsistency. A notification is published on every terminal outcome that follows a human decision (`Rejected`, `Completed`, `Failed`-via-execution); the one path with no prior decision — a pre-approval validation failure landing in `Failed` — publishes none.
 
 ---
 
