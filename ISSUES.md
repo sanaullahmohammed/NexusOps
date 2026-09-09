@@ -14,11 +14,11 @@ Every finding cites `file:line` against that tree. Line numbers drift; the named
 | Field | Meaning |
 |---|---|
 | **Severity** | `high` — blocks any real deployment · `medium` — correctness or reliability gap · `low` — quality, cost, or ergonomics |
-| **Status** | `open` — unaddressed · `accepted` — known and deliberately not fixed, with a reason · `fixed` — closed by the commit that filed this register, pre-merge · `fixed-in-#NN` — closed by that PR |
+| **Status** | `open` — unaddressed · `accepted` — known and deliberately not fixed, with a reason · `fixed-in-#NN` — closed by that PR |
 
-> `fixed` is the pre-merge form and exists only until this register's own PR number is known; those
-> entries become `fixed-in-#NN` on merge. Merges in this repository are PR-numbered rather than
-> SHA-referenced, and a squash-merge dangles the pre-merge SHA while the PR number survives.
+> Closed entries are referenced by PR number rather than commit SHA: every merge in this
+> repository's history is PR-numbered, and a squash-merge dangles the pre-merge SHA while the PR
+> number survives.
 
 This is a **findings register, not a feature spec.** These are independent items to be picked off or
 consciously deferred, not one unit of work. When an item graduates to implementation it earns its
@@ -38,7 +38,7 @@ are listed as `accepted` with the reasoning, not as defects. The distinction bet
 | [SEC-1](#sec-1) | high | open | No authentication anywhere; approval gate records no decider |
 | [SEC-2](#sec-2) | high | open | Session identifiers are unauthenticated, unrevocable bearer tokens |
 | [SEC-3](#sec-3) | high | open | No rate limiting or prompt-size cap on a paid model endpoint |
-| [SEC-4](#sec-4) | low | **fixed** | Tracked `appsettings.Development.json` had drifted from its documented placeholder shape |
+| [SEC-4](#sec-4) | low | **fixed-in-#88** | Tracked `appsettings.Development.json` had drifted from its documented placeholder shape |
 | [REL-1](#rel-1) | medium | open | Retry coverage stops exactly at the network legs |
 | [REL-2](#rel-2) | medium | open | Session store has a lost-update race |
 | [REL-3](#rel-3) | medium | open | Approval sagas park in `AwaitingApproval` forever |
@@ -133,7 +133,7 @@ ceiling that fails closed.
 ---
 
 ### SEC-4
-**Tracked `appsettings.Development.json` had drifted from its own documented shape.** · `low` · `fixed`
+**Tracked `appsettings.Development.json` had drifted from its own documented shape.** · `low` · `fixed-in-#88`
 
 `NexusOps.AgentHost/appsettings.Development.json` is tracked and contained
 `https://nexus-ops-resource.cognitiveservices.azure.com/` and a real deployment name.
@@ -170,7 +170,7 @@ tracked file and the setup instructions now agree where they had silently diverg
 moves from "works by accident on the author's machine, and fails confusingly for everyone else" to
 "fails the same way for everyone, against instructions that are already written."
 
-**Effort.** Trivial — applied in the same change that filed this register.
+**Effort.** Trivial — applied in #88, the same change that filed this register.
 
 ---
 
