@@ -14,7 +14,11 @@ Every finding cites `file:line` against that tree. Line numbers drift; the named
 | Field | Meaning |
 |---|---|
 | **Severity** | `high` — blocks any real deployment · `medium` — correctness or reliability gap · `low` — quality, cost, or ergonomics |
-| **Status** | `open` — unaddressed · `accepted` — known and deliberately not fixed, with a reason · `fixed-in-#NN` — closed by that PR |
+| **Status** | `open` — unaddressed · `accepted` — known and deliberately not fixed, with a reason · `fixed` — closed by the commit that filed this register, pre-merge · `fixed-in-#NN` — closed by that PR |
+
+> `fixed` is the pre-merge form and exists only until this register's own PR number is known; those
+> entries become `fixed-in-#NN` on merge. Merges in this repository are PR-numbered rather than
+> SHA-referenced, and a squash-merge dangles the pre-merge SHA while the PR number survives.
 
 This is a **findings register, not a feature spec.** These are independent items to be picked off or
 consciously deferred, not one unit of work. When an item graduates to implementation it earns its
@@ -159,6 +163,12 @@ dotnet user-secrets set "AzureAI:DeploymentName" "<your-deployment>"
 > (`AZURE_AI_FOUNDRY_API_KEY`); `Endpoint` and `DeploymentName` are read from configuration only. A
 > working checkout that relied on the tracked values must set the two user secrets above, or
 > AgentHost will start and then fail on the first model call.
+
+**Why this is an improvement beyond closing the drift.** A fresh clone previously needed one secret
+and now needs three. That is the right direction: README §2 already documented all three, so the
+tracked file and the setup instructions now agree where they had silently diverged. The failure mode
+moves from "works by accident on the author's machine, and fails confusingly for everyone else" to
+"fails the same way for everyone, against instructions that are already written."
 
 **Effort.** Trivial — applied in the same change that filed this register.
 
