@@ -39,18 +39,22 @@ are listed as `accepted` with the reasoning, not as defects. The distinction bet
 | [SEC-2](#sec-2) | high | open | Session identifiers are unauthenticated, unrevocable bearer tokens |
 | [SEC-3](#sec-3) | high | open | No rate limiting or prompt-size cap on a paid model endpoint |
 | [SEC-4](#sec-4) | low | **fixed-in-#88** | Tracked `appsettings.Development.json` had drifted from its documented placeholder shape |
+| [SEC-5](#sec-5) | medium | open | Startup validation cannot recognise the placeholders it now ships |
 | [REL-1](#rel-1) | medium | open | Retry coverage stops exactly at the network legs |
 | [REL-2](#rel-2) | medium | open | Session store has a lost-update race |
 | [REL-3](#rel-3) | medium | open | Approval sagas park in `AwaitingApproval` forever |
 | [REL-4](#rel-4) | medium | open | Compensation failure is silent — no dead-letter, no alert |
 | [REL-5](#rel-5) | medium | open | No idempotency keys on mutation legs |
 | [REL-6](#rel-6) | medium | open | No health check on the model provider |
+| [REL-7](#rel-7) | high | open | The model provider is an unmitigated single point of failure |
+| [REL-8](#rel-8) | low | open | Approval blocks an HTTP request on a distributed workflow |
 | [QUA-1](#qua-1) | medium | open | Nothing tests the system prompt's behavioural constraints |
 | [QUA-2](#qua-2) | medium | open | Evaluation dataset is saturated |
 | [QUA-3](#qua-3) | low | open | Nine hardcoded timeouts, none configurable |
 | [QUA-4](#qua-4) | low | open | History trimming is turn-counted, not token-counted |
 | [QUA-5](#qua-5) | low | open | `notification-service` and `frontend` have no tests |
 | [QUA-6](#qua-6) | low | open | Tool results enter model context undelimited |
+| [QUA-7](#qua-7) | low | open | Domain pluggability is partial |
 | [ACC-1](#acc-1) | — | accepted | Domain services are in-memory |
 | [ACC-2](#acc-2) | — | accepted | `NexusOps.Server` and `frontend/` are scaffold |
 
@@ -171,6 +175,46 @@ moves from "works by accident on the author's machine, and fails confusingly for
 "fails the same way for everyone, against instructions that are already written."
 
 **Effort.** Trivial — applied in #88, the same change that filed this register.
+
+---
+
+### SEC-5
+**Startup validation cannot recognise the placeholders it now ships.** · `medium` · `open`
+
+Since [SEC-4](#sec-4)'s fix, the tracked `NexusOps.AgentHost/appsettings.Development.json` ships
+`<your-endpoint>` and `<your-deployment>`. Neither is whitespace, so both pass the
+`string.IsNullOrWhiteSpace` guards in `AgentServiceExtensions.AddAgentServices` and flow through to
+`new Uri(opts.Endpoint)`.
+
+**Impact.** A fresh clone that sets only `AzureAI:ApiKey` — which is what most setup muscle memory
+does, since that is the one secret the README emphasises — fails during DI resolution with:
+
+```
+UriFormatException: Invalid URI: The format of the URI could not be determined.
+```
+
+rather than the `"AzureAI:Endpoint is required."` the validation block exists to produce. The
+failure is also deferred: `AzureOpenAIClient` is a singleton resolved lazily, so on a full Aspire
+run it surfaces behind whatever else fails first, not at startup.
+
+`ApiKey` is the only setting with both a placeholder check (`opts.ApiKey == "<your-api-key>"`) and
+an environment-variable fallback (`AZURE_AI_FOUNDRY_API_KEY`). `Endpoint` and `DeploymentName` have
+neither.
+
+**This is a direct consequence of SEC-4's fix**, and worth stating plainly: making the tracked file
+honest was correct, and validation did not keep up with it. Recording it is cheaper than having the
+next clone discover it.
+
+**Proposed fix.** Extend the existing placeholder detection to all three settings, and treat a
+placeholder as absent so the intended message is produced. Guard the `Uri` construction with
+`Uri.TryCreate(..., UriKind.Absolute, out _)` so a malformed endpoint reports which setting is wrong
+rather than surfacing a bare `UriFormatException`. Optionally give `Endpoint`/`DeploymentName` the
+same environment-variable fallback `ApiKey` has, which would also simplify container configuration.
+
+**Effort.** Low — one method, and the failure is already reproducible.
+
+*Verified by execution 2026-09-09: `new Uri("<your-endpoint>")` throws
+`UriFormatException: Invalid URI: The format of the URI could not be determined.`*
 
 ---
 
@@ -334,6 +378,55 @@ on missing configuration; this covers the running case.
 
 ---
 
+### REL-7
+**The model provider is an unmitigated single point of failure.** · `high` · `open`
+
+Every request through `/api/chat` is a call to a single Azure AI Foundry deployment. There is no
+fallback provider, no degraded mode, no cached-response path, and no circuit breaker.
+
+**Impact.** Foundry unavailable means the product is entirely unavailable — not degraded. This is a
+sharper dependency than Redis, whose failure *is* explicitly designed for (the store distinguishes
+`Missing` from `Unavailable`, keeps the caller's session id, and runs stateless), and sharper than
+RabbitMQ, whose failure leaves the Direct path serving.
+
+**The contrast is the point.** Redis got a designed failure mode because someone asked what absent
+versus unreachable should mean. The model dependency never had that question asked of it, and it is
+the hardest dependency in the system. Compounds with [REL-6](#rel-6): nothing even reports the
+provider as unreachable.
+
+**Proposed fix.** `AIAgent` is constructed in one place (`AgentServiceExtensions`), so a second
+provider behind the same `Microsoft.Extensions.AI` abstraction is a contained change. The hard part
+is behavioural rather than structural — a different model routes differently, so a failover silently
+changes tool-selection behaviour unless each provider carries its own evaluation baseline (see
+[QUA-2](#qua-2)). Decide explicitly whether a *worse but available* agent beats an error; for reads
+probably yes, for anything approaching a mutation, failing is safer than routing unpredictably.
+
+**Effort.** Medium — small structurally, real work to do responsibly.
+
+---
+
+### REL-8
+**Approval blocks an HTTP request on a distributed workflow.** · `low` · `open`
+
+`POST /api/approvals/{id}/approve` holds the connection until the execution consumer reports a
+final outcome — up to the 25s client timeout.
+
+**Impact.** The behaviour is deliberate and defensible: an operator approving a refund wants to know
+it *happened*, and the response carries the real `OrderActionExecutionOutcome` rather than an
+acknowledgement. It also forced the two carefully-distinguished 504 messages, which are good.
+
+But it couples an HTTP request's lifetime to a distributed workflow's — precisely the coupling the
+rest of the architecture exists to avoid — and it does not survive volume or the longer approval
+windows [REL-3](#rel-3) contemplates. It optimises for demonstration.
+
+**Proposed fix.** `202 Accepted` plus a subscription or webhook for the outcome, with the blocking
+form retained as an opt-in for interactive use. Pairs with REL-3: once approvals can be long-lived,
+blocking stops being tenable at all.
+
+**Effort.** Medium — changes the client contract.
+
+---
+
 ## Quality & observability
 
 ### QUA-1
@@ -471,6 +564,35 @@ contents as data. Revisit properly before any real data source is connected.
 
 ---
 
+### QUA-7
+**Domain pluggability is partial.** · `low` · `open`
+
+Constitution Principle V and this repository's documentation describe the orchestration core as
+domain-agnostic, with the e-commerce domain as a swappable sample pack.
+
+**The saga seam genuinely holds.** Each saga is one folder plus one registration call, `OrderAction`
+re-registers `IRequestClient<RequestOrderFinding>` itself rather than depending on
+`OrderInvestigation`'s registration specifically so it stays independently deletable, and feature
+008's outbox migration is hand-written `CREATE TABLE IF NOT EXISTS` precisely so deleting one folder
+cannot break the other. That is a seam someone actually tested.
+
+**Three things are not domain-agnostic**, and the claim should name them:
+
+1. `AzureAIOptions.AgentInstructions` — the system prompt hardcodes order/inventory/product routing
+   rules, including the three-way disambiguation between the order tools.
+2. `NexusOps.Evaluation/Data/eval-cases.json` — all 24 cases are e-commerce.
+3. `NexusOps.Contracts/SeedDataConstants.cs` — shared across all three domain services.
+
+**Impact.** Low in practice; the risk is overclaiming. "Fully domain-pluggable" is not supportable;
+"the saga seam is pluggable, and three domain-specific surfaces would need replacing" is.
+
+**Proposed fix.** Documentation first — state the three. If pluggability is ever exercised for real,
+the prompt's routing section is the piece that most wants extracting into a per-domain file.
+
+**Effort.** Trivial for the doc; the rest only matters if a real second domain arrives.
+
+---
+
 ## Accepted — known, deliberate, not defects
 
 ### ACC-1
@@ -547,3 +669,11 @@ is deliberate and documented; only the model-provider check is missing). Both ar
 corrected, narrower form. SEC-4 was likewise reframed once history confirmed no credential was ever
 committed and README §2 turned out to already document the placeholder shape the file had drifted
 from — which made it a drift defect with a two-minute fix rather than a disclosure to accept.
+
+**Second pass (2026-09-09, post-#88).** Four findings added. [SEC-5](#sec-5) is a consequence of
+SEC-4's own fix — making the tracked file honest left startup validation unable to recognise the
+placeholders it now ships, so a fresh clone gets a `UriFormatException` instead of the intended
+error. A register whose first fix produced its next finding is working as intended; the alternative
+was the next clone finding it. [REL-7](#rel-7), [REL-8](#rel-8) and [QUA-7](#qua-7) close a gap in
+the other direction — they were known and written down elsewhere but absent here, which meant this
+document was quietly incomplete rather than wrong. Both directions of drift are worth checking for.
