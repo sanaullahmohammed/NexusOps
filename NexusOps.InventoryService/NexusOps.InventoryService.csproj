@@ -8,8 +8,8 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.RabbitMQ.Client" Version="13.5.3" />
-    <PackageReference Include="MassTransit" Version="8.5.10" />
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.10" />
+    <PackageReference Include="MassTransit" Version="8.5.11" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.11" />
   </ItemGroup>
 
   <ItemGroup>
