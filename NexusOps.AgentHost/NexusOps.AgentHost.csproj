@@ -17,10 +17,10 @@
     <PackageReference Include="MassTransit" Version="8.5.11" />
     <PackageReference Include="MassTransit.RabbitMQ" Version="8.5.11" />
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.24.0" />
-    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.24.0" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.26.0" />
+    <PackageReference Include="Microsoft.Agents.AI.OpenAI" Version="1.26.0" />
     <PackageReference Include="Scalar.AspNetCore" Version="2.18.0" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>
